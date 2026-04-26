@@ -21,8 +21,12 @@ const FontStyles = () => (
     .pulse-1 { animation: pulse 1.4s ease-in-out infinite; }
     .pulse-2 { animation: pulse 1.4s ease-in-out 0.2s infinite; }
     .pulse-3 { animation: pulse 1.4s ease-in-out 0.4s infinite; }
-    button, [role="button"] { transition: all 0.15s ease; }
+    button, [role="button"] { transition: transform 0.18s cubic-bezier(.2,.7,.2,1), box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
     a { color: inherit; }
+    .opt-btn:not(.is-sel):hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(10, 37, 64, 0.06); border-color: #127572 !important; }
+    .opt-btn.is-sel { box-shadow: 0 8px 22px rgba(18, 117, 114, 0.22); transform: translateY(-1px); }
+    .branch-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(10, 37, 64, 0.08); }
+    .acc-card:hover { box-shadow: 0 6px 18px rgba(10, 37, 64, 0.07); }
   `}</style>
 );
 
@@ -916,7 +920,7 @@ export default function PathED() {
         onLogo={reset}
         branch={branch}
       />
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "32px 24px 96px" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "44px 28px 120px" }}>
         {screen === "landing" && <Landing onPick={startBranch} />}
         {screen === "wizard" && currentStep && (
           <WizardStep
@@ -1095,11 +1099,12 @@ function Landing({ onPick }) {
 
       <div
         style={{
-          padding: "28px 28px 24px",
+          padding: "32px 32px 28px",
           background: C.surface,
           border: `1px solid ${C.border}`,
-          borderRadius: 6,
-          marginBottom: 24,
+          borderRadius: 12,
+          marginBottom: 32,
+          boxShadow: "0 1px 3px rgba(10, 37, 64, 0.04)",
         }}
       >
         <div
@@ -1108,32 +1113,35 @@ function Landing({ onPick }) {
             fontSize: 11,
             color: C.muted,
             textTransform: "uppercase",
-            letterSpacing: "0.12em",
+            letterSpacing: "0.14em",
             fontWeight: 600,
-            marginBottom: 16,
+            marginBottom: 22,
           }}
         >
           Where are you right now?
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {Object.values(BRANCHES).map((b) => (
             <button
               key={b.id}
+              className="branch-btn"
               onClick={() => onPick(b.id)}
               style={{
                 background: C.surface,
                 border: `1px solid ${C.border}`,
-                padding: "18px 20px",
-                borderRadius: 6,
+                padding: "22px 24px",
+                borderRadius: 10,
                 cursor: "pointer",
                 textAlign: "left",
                 display: "flex",
                 alignItems: "center",
-                gap: 18,
+                gap: 22,
                 color: C.text,
-                fontSize: 14,
-                lineHeight: 1.5,
+                fontSize: 14.5,
+                lineHeight: 1.55,
                 flexWrap: "wrap",
+                boxShadow: "0 1px 2px rgba(10, 37, 64, 0.03)",
+                fontFamily: "inherit",
               }}
               onMouseOver={(e) => {
                 e.currentTarget.style.borderColor = C.teal;
@@ -1153,18 +1161,30 @@ function Landing({ onPick }) {
                   fontWeight: 700,
                   color: "#fff",
                   background: C.teal,
-                  padding: "5px 11px",
+                  padding: "7px 14px",
                   borderRadius: 999,
-                  letterSpacing: "0.12em",
+                  letterSpacing: "0.14em",
                   textTransform: "uppercase",
                   whiteSpace: "nowrap",
                   lineHeight: 1.2,
+                  boxShadow: "0 2px 6px rgba(18, 117, 114, 0.2)",
                 }}
               >
                 {b.short}
               </span>
-              <span style={{ flex: 1, minWidth: 200 }}>{b.label}</span>
-              <span style={{ color: C.mutedLight, fontSize: 16, flexShrink: 0 }}>→</span>
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 220,
+                  color: C.text,
+                  paddingRight: 8,
+                }}
+              >
+                {b.label}
+              </span>
+              <span style={{ color: C.mutedLight, fontSize: 18, flexShrink: 0, fontWeight: 300 }}>
+                →
+              </span>
             </button>
           ))}
         </div>
@@ -1258,7 +1278,7 @@ function WizardStep({
           color: C.teal,
           textTransform: "uppercase",
           fontWeight: 600,
-          marginBottom: 14,
+          marginBottom: 18,
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -1273,22 +1293,22 @@ function WizardStep({
       <h2
         style={{
           fontSize: 28,
-          lineHeight: 1.18,
+          lineHeight: 1.2,
           fontWeight: 600,
           color: C.navy,
-          margin: "0 0 12px 0",
+          margin: "0 0 16px 0",
           letterSpacing: "-0.02em",
         }}
       >
         {step.question}
       </h2>
       {step.subtext && (
-        <p style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 14.5, color: C.muted, marginBottom: 0, lineHeight: 1.6 }}>
           {step.subtext}
         </p>
       )}
 
-      <div style={{ marginTop: step.subtext ? 0 : 28 }}>
+      <div style={{ marginTop: 36 }}>
         {step.type === "single" && (
           <SingleSelect
             options={step.options}
@@ -1303,8 +1323,8 @@ function WizardStep({
             <div
               className="slide-down"
               style={{
-                marginTop: 24,
-                paddingTop: 24,
+                marginTop: 32,
+                paddingTop: 28,
                 borderTop: `1px dashed ${C.borderStrong}`,
               }}
             >
@@ -1314,9 +1334,9 @@ function WizardStep({
                   fontSize: 11,
                   color: C.teal,
                   textTransform: "uppercase",
-                  letterSpacing: "0.1em",
+                  letterSpacing: "0.14em",
                   fontWeight: 600,
-                  marginBottom: 12,
+                  marginBottom: 14,
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
@@ -1324,7 +1344,7 @@ function WizardStep({
               >
                 <span style={{ color: C.borderStrong }}>↳</span> Follow-up
               </div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: C.ink, marginBottom: 14 }}>
+              <div style={{ fontSize: 17, fontWeight: 500, color: C.ink, marginBottom: 22, lineHeight: 1.4 }}>
                 {fu.question}
               </div>
               <SingleSelect
@@ -1366,10 +1386,13 @@ function WizardStep({
 
       <div
         style={{
-          marginTop: 40,
+          marginTop: 56,
+          paddingTop: 24,
+          borderTop: `1px solid ${C.border}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: 16,
         }}
       >
         <button
@@ -1382,6 +1405,7 @@ function WizardStep({
             fontSize: 13,
             cursor: "pointer",
             fontWeight: 500,
+            fontFamily: "inherit",
           }}
         >
           ← Back
@@ -1393,12 +1417,14 @@ function WizardStep({
             background: canAdvance ? C.navy : C.bgAlt,
             color: canAdvance ? "#fff" : C.mutedLight,
             border: canAdvance ? "none" : `1px solid ${C.border}`,
-            padding: "13px 28px",
-            fontSize: 13,
+            padding: "15px 32px",
+            fontSize: 14,
             fontWeight: 600,
-            borderRadius: 4,
+            borderRadius: 8,
             cursor: canAdvance ? "pointer" : "not-allowed",
             letterSpacing: "0.01em",
+            fontFamily: "inherit",
+            boxShadow: canAdvance ? "0 8px 22px rgba(10, 37, 64, 0.18)" : "none",
           }}
         >
           {isLast ? "Generate my profile →" : "Continue →"}
@@ -1411,34 +1437,55 @@ function WizardStep({
 // ============ INPUT COMPONENTS ============
 function SingleSelect({ options, value, onChange }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {options.map((opt) => {
         const sel = value === opt;
         return (
           <button
             key={opt}
+            className={`opt-btn ${sel ? "is-sel" : ""}`}
             onClick={() => onChange(opt)}
             style={{
-              background: sel ? C.navy : C.surface,
+              background: sel ? C.teal : C.surface,
               color: sel ? "#fff" : C.text,
-              border: `1px solid ${sel ? C.navy : C.border}`,
-              padding: "13px 16px",
-              fontSize: 14,
+              border: `1px solid ${sel ? C.teal : C.border}`,
+              padding: "16px 20px",
+              fontSize: 14.5,
               lineHeight: 1.5,
-              borderRadius: 4,
+              borderRadius: 8,
               textAlign: "left",
               cursor: "pointer",
-              fontWeight: sel ? 500 : 400,
+              fontWeight: sel ? 600 : 400,
               fontFamily: "inherit",
-            }}
-            onMouseOver={(e) => {
-              if (!sel) e.currentTarget.style.borderColor = C.teal;
-            }}
-            onMouseOut={(e) => {
-              if (!sel) e.currentTarget.style.borderColor = C.border;
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
             }}
           >
-            {opt}
+            <span
+              aria-hidden="true"
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                border: `1.5px solid ${sel ? "#fff" : C.borderStrong}`,
+                background: sel ? "#fff" : "transparent",
+                position: "relative",
+                flexShrink: 0,
+              }}
+            >
+              {sel && (
+                <span
+                  style={{
+                    position: "absolute",
+                    inset: 3,
+                    borderRadius: "50%",
+                    background: C.teal,
+                  }}
+                />
+              )}
+            </span>
+            <span style={{ flex: 1 }}>{opt}</span>
           </button>
         );
       })}
@@ -1450,31 +1497,32 @@ function MultiSelect({ options, values, onChange }) {
   const toggle = (opt) =>
     onChange(values.includes(opt) ? values.filter((v) => v !== opt) : [...values, opt]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {options.map((opt) => {
         const sel = values.includes(opt);
         return (
           <button
             key={opt}
+            className={`opt-btn ${sel ? "is-sel" : ""}`}
             onClick={() => toggle(opt)}
             style={{
-              background: sel ? C.tealSoft : C.surface,
-              color: C.text,
+              background: sel ? C.teal : C.surface,
+              color: sel ? "#fff" : C.text,
               border: `1px solid ${sel ? C.teal : C.border}`,
-              padding: "13px 16px",
-              fontSize: 14,
+              padding: "16px 20px",
+              fontSize: 14.5,
               lineHeight: 1.5,
-              borderRadius: 4,
+              borderRadius: 8,
               textAlign: "left",
               cursor: "pointer",
-              fontWeight: sel ? 500 : 400,
+              fontWeight: sel ? 600 : 400,
               display: "flex",
               alignItems: "center",
               gap: 12,
               fontFamily: "inherit",
             }}
           >
-            <Check checked={sel} />
+            <Check checked={sel} onLight={sel} />
             <span style={{ flex: 1 }}>{opt}</span>
           </button>
         );
@@ -1489,38 +1537,39 @@ function MultiSelectWithOther({ options, values, otherValue, onChange, onOtherCh
   const otherSel = values.includes("Other (not listed)");
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {options.map((opt) => {
           const sel = values.includes(opt);
           return (
             <button
               key={opt}
+              className={`opt-btn ${sel ? "is-sel" : ""}`}
               onClick={() => toggle(opt)}
               style={{
-                background: sel ? C.tealSoft : C.surface,
-                color: C.text,
+                background: sel ? C.teal : C.surface,
+                color: sel ? "#fff" : C.text,
                 border: `1px solid ${sel ? C.teal : C.border}`,
-                padding: "13px 16px",
-                fontSize: 14,
+                padding: "16px 20px",
+                fontSize: 14.5,
                 lineHeight: 1.5,
-                borderRadius: 4,
+                borderRadius: 8,
                 textAlign: "left",
                 cursor: "pointer",
-                fontWeight: sel ? 500 : 400,
+                fontWeight: sel ? 600 : 400,
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
                 fontFamily: "inherit",
               }}
             >
-              <Check checked={sel} />
+              <Check checked={sel} onLight={sel} />
               <span style={{ flex: 1 }}>{opt}</span>
             </button>
           );
         })}
       </div>
       {otherSel && (
-        <div className="slide-down" style={{ marginTop: 12 }}>
+        <div className="slide-down" style={{ marginTop: 14 }}>
           <input
             type="text"
             value={otherValue}
@@ -1528,10 +1577,10 @@ function MultiSelectWithOther({ options, values, otherValue, onChange, onOtherCh
             placeholder="Type what's on your child's record..."
             style={{
               width: "100%",
-              padding: "12px 14px",
+              padding: "14px 16px",
               fontSize: 14,
               border: `1px solid ${C.borderStrong}`,
-              borderRadius: 4,
+              borderRadius: 6,
               background: C.surface,
               color: C.text,
               outline: "none",
@@ -1574,7 +1623,7 @@ function CascadeSelect({
   const otherSel = categories.includes(otherCat);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {taxonomy.map((c) => {
         const open = categories.includes(c.cat);
         const selectedCount = (specifics[c.cat] || []).length;
@@ -1583,9 +1632,10 @@ function CascadeSelect({
             key={c.cat}
             style={{
               border: `1px solid ${open ? C.teal : C.border}`,
-              borderRadius: 4,
+              borderRadius: 8,
               overflow: "hidden",
               background: open ? C.tealSoft : C.surface,
+              boxShadow: open ? "0 4px 14px rgba(18, 117, 114, 0.10)" : "none",
             }}
           >
             <button
@@ -1594,15 +1644,15 @@ function CascadeSelect({
                 width: "100%",
                 background: "transparent",
                 border: "none",
-                padding: "14px 16px",
-                fontSize: 14,
+                padding: "16px 20px",
+                fontSize: 14.5,
                 fontWeight: open ? 600 : 500,
                 cursor: "pointer",
                 textAlign: "left",
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                color: C.text,
+                gap: 14,
+                color: open ? C.navy : C.text,
                 fontFamily: "inherit",
               }}
             >
@@ -1615,9 +1665,10 @@ function CascadeSelect({
                     fontSize: 11,
                     background: C.teal,
                     color: "#fff",
-                    padding: "2px 8px",
-                    borderRadius: 10,
-                    fontWeight: 600,
+                    padding: "3px 10px",
+                    borderRadius: 999,
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
                   }}
                 >
                   {selectedCount}
@@ -1625,8 +1676,8 @@ function CascadeSelect({
               )}
               <span
                 style={{
-                  color: C.mutedLight,
-                  fontSize: 14,
+                  color: open ? C.teal : C.mutedLight,
+                  fontSize: 16,
                   transform: open ? "rotate(90deg)" : "none",
                   transition: "transform 0.2s",
                 }}
@@ -1635,7 +1686,13 @@ function CascadeSelect({
               </span>
             </button>
             {open && (
-              <div className="slide-down" style={{ padding: "0 12px 14px 40px" }}>
+              <div
+                className="slide-down"
+                style={{
+                  padding: "4px 16px 18px 52px",
+                  borderTop: `1px solid rgba(18, 117, 114, 0.18)`,
+                }}
+              >
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {c.items.map((item) => {
                     const sel = (specifics[c.cat] || []).includes(item);
@@ -1645,13 +1702,15 @@ function CascadeSelect({
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 10,
-                          padding: "8px 10px",
-                          fontSize: 13,
-                          color: C.text,
+                          gap: 12,
+                          padding: "10px 12px",
+                          fontSize: 13.5,
+                          color: sel ? C.navy : C.text,
+                          fontWeight: sel ? 500 : 400,
                           cursor: "pointer",
-                          borderRadius: 3,
-                          background: sel ? "rgba(255,255,255,0.6)" : "transparent",
+                          borderRadius: 6,
+                          background: sel ? "rgba(255,255,255,0.7)" : "transparent",
+                          transition: "background 0.15s ease",
                         }}
                       >
                         <input
@@ -1659,10 +1718,11 @@ function CascadeSelect({
                           checked={sel}
                           onChange={() => toggleSpec(c.cat, item)}
                           style={{
-                            width: 14,
-                            height: 14,
+                            width: 16,
+                            height: 16,
                             accentColor: C.teal,
                             cursor: "pointer",
+                            margin: 0,
                           }}
                         />
                         {item}
@@ -1678,8 +1738,9 @@ function CascadeSelect({
       <div
         style={{
           border: `1px solid ${otherSel ? C.teal : C.border}`,
-          borderRadius: 4,
+          borderRadius: 8,
           background: otherSel ? C.tealSoft : C.surface,
+          boxShadow: otherSel ? "0 4px 14px rgba(18, 117, 114, 0.10)" : "none",
         }}
       >
         <button
@@ -1688,15 +1749,15 @@ function CascadeSelect({
             width: "100%",
             background: "transparent",
             border: "none",
-            padding: "14px 16px",
-            fontSize: 14,
+            padding: "16px 20px",
+            fontSize: 14.5,
             fontWeight: otherSel ? 600 : 500,
             cursor: "pointer",
             textAlign: "left",
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            color: C.text,
+            gap: 14,
+            color: otherSel ? C.navy : C.text,
             fontFamily: "inherit",
           }}
         >
@@ -1704,7 +1765,13 @@ function CascadeSelect({
           <span style={{ flex: 1 }}>Other (not listed)</span>
         </button>
         {otherSel && (
-          <div className="slide-down" style={{ padding: "0 16px 14px 16px" }}>
+          <div
+            className="slide-down"
+            style={{
+              padding: "4px 18px 18px 18px",
+              borderTop: `1px solid rgba(18, 117, 114, 0.18)`,
+            }}
+          >
             <input
               type="text"
               value={otherValue}
@@ -1712,10 +1779,10 @@ function CascadeSelect({
               placeholder="Tell us what's on your mind..."
               style={{
                 width: "100%",
-                padding: "10px 12px",
-                fontSize: 13,
+                padding: "12px 14px",
+                fontSize: 14,
                 border: `1px solid ${C.borderStrong}`,
-                borderRadius: 4,
+                borderRadius: 6,
                 background: C.surface,
                 color: C.text,
                 outline: "none",
@@ -1729,20 +1796,25 @@ function CascadeSelect({
   );
 }
 
-function Check({ checked }) {
+function Check({ checked, onLight }) {
+  // onLight = checkbox sits on a teal-filled background; flip the colors so
+  // the box reads as white-on-teal with a teal tick.
+  const borderColor = checked ? (onLight ? "#fff" : C.teal) : C.borderStrong;
+  const bg = checked ? (onLight ? "#fff" : C.teal) : "transparent";
+  const tickColor = onLight ? C.teal : "#fff";
   return (
     <div
       style={{
-        width: 16,
-        height: 16,
-        borderRadius: 3,
-        border: `1.5px solid ${checked ? C.teal : C.borderStrong}`,
-        background: checked ? C.teal : "transparent",
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        border: `1.5px solid ${borderColor}`,
+        background: bg,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "#fff",
-        fontSize: 11,
+        color: tickColor,
+        fontSize: 12,
         fontWeight: 800,
         flexShrink: 0,
         transition: "all 0.15s",
@@ -1920,38 +1992,48 @@ function Results({
       <div
         className="stagger-1"
         style={{
-          paddingBottom: 22,
-          borderBottom: `1px solid ${C.border}`,
-          marginBottom: 28,
+          background: `linear-gradient(135deg, ${C.navy} 0%, ${C.teal} 130%)`,
+          color: "#fff",
+          padding: "36px 32px",
+          borderRadius: 12,
+          marginBottom: 32,
+          boxShadow: "0 12px 32px rgba(10, 37, 64, 0.18)",
         }}
       >
         <div
           className="mono"
           style={{
             fontSize: 11,
-            letterSpacing: "0.14em",
-            color: C.teal,
+            letterSpacing: "0.18em",
+            color: "rgba(75, 168, 164, 1)",
             textTransform: "uppercase",
             fontWeight: 600,
-            marginBottom: 10,
+            marginBottom: 12,
           }}
         >
           PathED Profile · {BRANCHES[branch].short} Track
         </div>
         <div
           style={{
-            fontSize: 26,
-            color: C.navy,
+            fontSize: 30,
+            color: "#fff",
             fontWeight: 700,
-            lineHeight: 1.18,
-            marginBottom: 6,
+            lineHeight: 1.15,
+            marginBottom: 8,
             letterSpacing: "-0.02em",
           }}
         >
           Generated {today}
         </div>
-        <div className="mono" style={{ fontSize: 11, color: C.muted, letterSpacing: "0.05em" }}>
-          Powered by AccommodatED Pathways · contact@accommodatedpathways.com
+        <div
+          className="mono"
+          style={{
+            fontSize: 11,
+            color: "rgba(255,255,255,0.6)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          AccommodatED Pathways · contact@accommodatedpathways.com
         </div>
       </div>
 
@@ -1961,12 +2043,12 @@ function Results({
         style={{
           background: C.bgAlt,
           border: `1px solid ${C.border}`,
-          borderRadius: 4,
-          padding: "13px 16px",
-          fontSize: 12,
-          lineHeight: 1.65,
+          borderRadius: 8,
+          padding: "16px 20px",
+          fontSize: 12.5,
+          lineHeight: 1.7,
           color: C.muted,
-          marginBottom: 32,
+          marginBottom: 48,
         }}
       >
         <strong style={{ color: C.text, fontWeight: 600 }}>A note before you read.</strong> PathED
@@ -1989,6 +2071,7 @@ function Results({
           key={i}
           number={String(i + 1).padStart(2, "0")}
           title={section.title}
+          isFirst={i === 0}
           className={`stagger-${Math.min(i + 3, 7)}`}
         >
           <SectionBody section={section} />
@@ -1999,56 +2082,84 @@ function Results({
       <div
         className="stagger-7"
         style={{
-          background: C.navy,
+          background: `linear-gradient(150deg, ${C.navy} 0%, ${C.navyDark} 100%)`,
           color: "#fff",
-          padding: "36px 30px",
-          borderRadius: 6,
-          marginBottom: 28,
-          marginTop: 8,
+          padding: "48px 40px",
+          borderRadius: 14,
+          marginBottom: 32,
+          marginTop: 24,
+          boxShadow: "0 18px 48px rgba(10, 37, 64, 0.22)",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: -80,
+            right: -80,
+            width: 240,
+            height: 240,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${C.teal}33, transparent 70%)`,
+            pointerEvents: "none",
+          }}
+        />
         <div
           className="mono"
           style={{
             fontSize: 11,
-            letterSpacing: "0.14em",
+            letterSpacing: "0.18em",
             color: C.tealLight,
             textTransform: "uppercase",
-            fontWeight: 600,
-            marginBottom: 14,
+            fontWeight: 700,
+            marginBottom: 18,
+            position: "relative",
           }}
         >
           Your next step
         </div>
         <div
           style={{
-            fontSize: 24,
+            fontSize: 30,
             fontWeight: 700,
-            lineHeight: 1.22,
-            marginBottom: 12,
+            lineHeight: 1.18,
+            marginBottom: 16,
             letterSpacing: "-0.02em",
+            position: "relative",
           }}
         >
           {results.ctaHeadline || "Let's take this further."}
         </div>
-        <p style={{ fontSize: 14.5, lineHeight: 1.65, marginBottom: 22, opacity: 0.92 }}>
+        <p
+          style={{
+            fontSize: 15.5,
+            lineHeight: 1.7,
+            marginBottom: 32,
+            opacity: 0.88,
+            maxWidth: 560,
+            position: "relative",
+          }}
+        >
           {results.ctaBody}
         </p>
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 14,
-            paddingTop: 18,
-            borderTop: `1px solid rgba(255,255,255,0.12)`,
+            gap: 18,
+            paddingTop: 26,
+            borderTop: `1px solid rgba(255,255,255,0.14)`,
             flexWrap: "wrap",
+            position: "relative",
           }}
         >
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 2 }}>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
               {ctas.primary.service}
             </div>
-            <div className="mono" style={{ fontSize: 12, opacity: 0.7, letterSpacing: "0.04em" }}>
+            <div className="mono" style={{ fontSize: 12.5, opacity: 0.7, letterSpacing: "0.05em" }}>
               {ctas.primary.price} · {ctas.primary.duration}
             </div>
           </div>
@@ -2059,12 +2170,14 @@ function Results({
             style={{
               background: C.teal,
               color: "#fff",
-              padding: "13px 26px",
-              borderRadius: 4,
+              padding: "16px 30px",
+              borderRadius: 8,
               textDecoration: "none",
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: 600,
               letterSpacing: "0.02em",
+              boxShadow: "0 8px 22px rgba(18, 117, 114, 0.4)",
+              whiteSpace: "nowrap",
             }}
           >
             Book this →
@@ -2105,17 +2218,18 @@ function Results({
         style={{
           background: C.surface,
           border: `1px solid ${C.border}`,
-          borderRadius: 6,
-          padding: "24px 26px",
-          marginBottom: 22,
+          borderRadius: 12,
+          padding: "32px 32px",
+          marginBottom: 28,
+          boxShadow: "0 1px 2px rgba(10, 37, 64, 0.04)",
         }}
       >
         {!emailSubmitted ? (
           <>
-            <div style={{ fontSize: 18, fontWeight: 600, color: C.navy, marginBottom: 6, letterSpacing: "-0.01em" }}>
+            <div style={{ fontSize: 20, fontWeight: 600, color: C.navy, marginBottom: 8, letterSpacing: "-0.01em" }}>
               Want a copy of your profile?
             </div>
-            <div style={{ fontSize: 14, color: C.text, lineHeight: 1.55, marginBottom: 16 }}>
+            <div style={{ fontSize: 14.5, color: C.text, lineHeight: 1.6, marginBottom: 22 }}>
               We'll email you your full PathED Profile so you can save it, share it, or bring it
               to your next meeting.
             </div>
@@ -2126,14 +2240,14 @@ function Results({
               placeholder="your@email.com"
               style={{
                 width: "100%",
-                padding: "12px 14px",
-                fontSize: 14,
+                padding: "14px 16px",
+                fontSize: 14.5,
                 border: `1px solid ${C.borderStrong}`,
-                borderRadius: 4,
+                borderRadius: 8,
                 background: C.surface,
                 color: C.text,
                 outline: "none",
-                marginBottom: 14,
+                marginBottom: 20,
                 fontFamily: "inherit",
               }}
             />
@@ -2141,11 +2255,11 @@ function Results({
               style={{
                 display: "flex",
                 alignItems: "flex-start",
-                gap: 10,
-                fontSize: 13,
+                gap: 12,
+                fontSize: 13.5,
                 color: C.text,
-                lineHeight: 1.5,
-                marginBottom: 10,
+                lineHeight: 1.55,
+                marginBottom: 14,
                 cursor: "pointer",
               }}
             >
@@ -2165,11 +2279,11 @@ function Results({
               style={{
                 display: "flex",
                 alignItems: "flex-start",
-                gap: 10,
-                fontSize: 13,
+                gap: 12,
+                fontSize: 13.5,
                 color: C.muted,
-                lineHeight: 1.5,
-                marginBottom: 18,
+                lineHeight: 1.55,
+                marginBottom: 24,
                 cursor: "pointer",
               }}
             >
@@ -2189,13 +2303,15 @@ function Results({
                 background: C.teal,
                 color: "#fff",
                 border: "none",
-                padding: "12px 24px",
-                fontSize: 13,
+                padding: "14px 24px",
+                fontSize: 14,
                 fontWeight: 600,
-                borderRadius: 4,
+                borderRadius: 8,
                 cursor: "pointer",
                 width: "100%",
                 letterSpacing: "0.01em",
+                fontFamily: "inherit",
+                boxShadow: "0 6px 18px rgba(18, 117, 114, 0.25)",
               }}
             >
               Send my profile →
@@ -2259,36 +2375,47 @@ function Results({
   );
 }
 
-function Section({ number, title, children, className }) {
+function Section({ number, title, children, className, isFirst }) {
+  const discSize = isFirst ? 40 : 32;
+  const numSize = isFirst ? 13 : 11;
+  const titleSize = isFirst ? 26 : 20;
   return (
-    <div className={className} style={{ marginBottom: 40 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+    <div className={className} style={{ marginBottom: isFirst ? 64 : 52 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          marginBottom: isFirst ? 22 : 20,
+        }}
+      >
         <span
           className="num"
           style={{
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            width: 30,
-            height: 30,
+            width: discSize,
+            height: discSize,
             borderRadius: "50%",
             background: C.teal,
             color: "#fff",
-            fontSize: 11,
+            fontSize: numSize,
             fontWeight: 700,
             letterSpacing: "0.04em",
             flexShrink: 0,
+            boxShadow: "0 4px 12px rgba(18, 117, 114, 0.25)",
           }}
         >
           {number}
         </span>
         <h3
           style={{
-            fontSize: 20,
+            fontSize: titleSize,
             fontWeight: 700,
             color: C.navy,
             margin: 0,
-            lineHeight: 1.25,
+            lineHeight: 1.2,
             letterSpacing: "-0.02em",
             flex: 1,
           }}
@@ -2304,7 +2431,7 @@ function Section({ number, title, children, className }) {
           }}
         />
       </div>
-      <div>{children}</div>
+      <div style={isFirst ? { fontSize: 16 } : undefined}>{children}</div>
     </div>
   );
 }
@@ -2378,17 +2505,18 @@ function SectionBody({ section }) {
   }
   if (section.type === "accommodations") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {section.items.map((a, i) => (
           <div
             key={i}
+            className="acc-card"
             style={{
               position: "relative",
-              padding: "20px 22px 20px 26px",
+              padding: "26px 28px 26px 32px",
               background: C.surface,
               border: `1px solid ${C.border}`,
-              borderRadius: 8,
-              boxShadow: "0 1px 2px rgba(10, 37, 64, 0.04)",
+              borderRadius: 12,
+              boxShadow: "0 2px 8px rgba(10, 37, 64, 0.05)",
               overflow: "hidden",
             }}
           >
@@ -2399,7 +2527,7 @@ function SectionBody({ section }) {
                 top: 0,
                 left: 0,
                 bottom: 0,
-                width: 4,
+                width: 5,
                 background: a.tag === "STRENGTHEN" ? C.warning : C.teal,
               }}
             />
@@ -2407,14 +2535,14 @@ function SectionBody({ section }) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
+                gap: 12,
                 flexWrap: "wrap",
-                marginBottom: 14,
+                marginBottom: 18,
               }}
             >
               <span
                 style={{
-                  fontSize: 16,
+                  fontSize: 17,
                   fontWeight: 700,
                   color: C.navy,
                   letterSpacing: "-0.01em",
@@ -2456,11 +2584,12 @@ function SectionBody({ section }) {
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 10,
-          padding: "20px 22px",
+          gap: 14,
+          padding: "26px 28px",
           background: C.bgAlt,
           border: `1px solid ${C.border}`,
-          borderRadius: 8,
+          borderRadius: 12,
+          boxShadow: "0 1px 2px rgba(10, 37, 64, 0.03)",
         }}
       >
         {section.items.map((q, i) => (
@@ -2468,9 +2597,9 @@ function SectionBody({ section }) {
             key={i}
             style={{
               display: "flex",
-              gap: 14,
+              gap: 16,
               alignItems: "flex-start",
-              paddingBottom: i < section.items.length - 1 ? 12 : 0,
+              paddingBottom: i < section.items.length - 1 ? 16 : 0,
               borderBottom:
                 i < section.items.length - 1 ? `1px dashed ${C.borderStrong}` : "none",
             }}
@@ -2481,13 +2610,13 @@ function SectionBody({ section }) {
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 28,
-                height: 28,
+                width: 32,
+                height: 32,
                 borderRadius: "50%",
                 background: C.surface,
                 border: `1.5px solid ${C.teal}`,
                 color: C.teal,
-                fontSize: 11,
+                fontSize: 11.5,
                 fontWeight: 700,
                 flexShrink: 0,
                 marginTop: 1,
@@ -2495,7 +2624,15 @@ function SectionBody({ section }) {
             >
               {String(i + 1).padStart(2, "0")}
             </span>
-            <div style={{ fontSize: 14.5, lineHeight: 1.55, color: C.text, paddingTop: 4 }}>
+            <div
+              style={{
+                fontSize: 15,
+                lineHeight: 1.6,
+                color: C.text,
+                paddingTop: 5,
+                flex: 1,
+              }}
+            >
               {q}
             </div>
           </div>
@@ -2505,30 +2642,32 @@ function SectionBody({ section }) {
   }
   if (section.type === "list_with_actions") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {section.items.map((t, i) => (
           <div
             key={i}
             style={{
-              padding: "14px 18px 14px 18px",
+              padding: "20px 24px",
               background: C.surface,
               border: `1px solid ${C.border}`,
-              borderLeft: `3px solid ${C.teal}`,
-              borderRadius: "0 6px 6px 0",
+              borderLeft: `4px solid ${C.teal}`,
+              borderRadius: "0 10px 10px 0",
+              boxShadow: "0 1px 2px rgba(10, 37, 64, 0.04)",
             }}
           >
             <div
               style={{
-                fontSize: 15,
+                fontSize: 15.5,
                 fontWeight: 600,
                 color: C.navy,
-                marginBottom: 6,
+                marginBottom: 8,
                 letterSpacing: "-0.01em",
+                lineHeight: 1.35,
               }}
             >
               {t.title}
             </div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text }}>{t.body}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.7, color: C.text }}>{t.body}</div>
           </div>
         ))}
       </div>
@@ -2539,24 +2678,24 @@ function SectionBody({ section }) {
 
 function AccDetail({ label, body, italic, last }) {
   return (
-    <div style={{ marginBottom: last ? 0 : 10 }}>
+    <div style={{ marginBottom: last ? 0 : 14 }}>
       <div
         className="mono"
         style={{
-          fontSize: 9.5,
-          letterSpacing: "0.12em",
+          fontSize: 10,
+          letterSpacing: "0.14em",
           color: C.teal,
           textTransform: "uppercase",
-          fontWeight: 600,
-          marginBottom: 3,
+          fontWeight: 700,
+          marginBottom: 5,
         }}
       >
         {label}
       </div>
       <div
         style={{
-          fontSize: 13.5,
-          lineHeight: 1.6,
+          fontSize: 14,
+          lineHeight: 1.65,
           color: C.text,
           fontStyle: italic ? "italic" : "normal",
         }}
