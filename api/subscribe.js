@@ -1,4 +1,15 @@
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
+
+// See api/generate.js for the why behind getRedis().
+let _redis = null;
+function getRedis() {
+  if (_redis) return _redis;
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return null;
+  }
+  _redis = Redis.fromEnv();
+  return _redis;
+}
 
 const RATE_LIMIT = 5;
 const RATE_WINDOW = 3600;
@@ -286,11 +297,14 @@ export default async function handler(req, res) {
   // Rate limiting
   const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || "unknown";
   try {
-    const rateKey = `pathed:sub:${ip}`;
-    const count = await kv.incr(rateKey);
-    if (count === 1) await kv.expire(rateKey, RATE_WINDOW);
-    if (count > RATE_LIMIT) {
-      return res.status(429).json({ error: "Too many requests. Please try again later." });
+    const redis = getRedis();
+    if (redis) {
+      const rateKey = `pathed:sub:${ip}`;
+      const count = await redis.incr(rateKey);
+      if (count === 1) await redis.expire(rateKey, RATE_WINDOW);
+      if (count > RATE_LIMIT) {
+        return res.status(429).json({ error: "Too many requests. Please try again later." });
+      }
     }
   } catch (e) {
     console.error("Rate limit error:", e?.message);

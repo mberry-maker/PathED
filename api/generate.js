@@ -1,4 +1,18 @@
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
+
+// Lazy singleton. Redis.fromEnv() reads UPSTASH_REDIS_REST_URL and
+// UPSTASH_REDIS_REST_TOKEN, which Vercel injects when the Upstash for Redis
+// marketplace integration is connected. Without those vars getRedis() returns
+// null and the rate-limit block falls through (see catch below).
+let _redis = null;
+function getRedis() {
+  if (_redis) return _redis;
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return null;
+  }
+  _redis = Redis.fromEnv();
+  return _redis;
+}
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 // Model and token limits are set HERE on the server. The client never controls them.
@@ -61,16 +75,19 @@ export default async function handler(req, res) {
     "unknown";
 
   try {
-    const rateKey = `pathed:rate:${ip}`;
-    const count = await kv.incr(rateKey);
-    if (count === 1) await kv.expire(rateKey, RATE_WINDOW);
-    if (count > RATE_LIMIT) {
-      return res.status(429).json({
-        error: "Too many requests. Please wait a while before generating another profile.",
-      });
+    const redis = getRedis();
+    if (redis) {
+      const rateKey = `pathed:rate:${ip}`;
+      const count = await redis.incr(rateKey);
+      if (count === 1) await redis.expire(rateKey, RATE_WINDOW);
+      if (count > RATE_LIMIT) {
+        return res.status(429).json({
+          error: "Too many requests. Please wait a while before generating another profile.",
+        });
+      }
     }
   } catch (kvError) {
-    // KV failure should not block the user — log and continue
+    // Redis failure should not block the user, log and continue.
     console.error("Rate limit check failed:", kvError?.message);
   }
 

@@ -212,9 +212,10 @@ request through. Set this up in five minutes in the Vercel dashboard.
 4. Name the database `pathed-kv`.
 5. On the connect screen, check **Production**, **Preview**, and **Development**
    so the env vars are injected into all three environments.
-6. Click **Connect**. Vercel injects the connection vars into the project:
-   `KV_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `KV_REST_API_READ_ONLY_TOKEN`,
-   plus the Upstash equivalents.
+6. Click **Connect**. Vercel injects the connection vars into the project.
+   The two PathED actually reads are `UPSTASH_REDIS_REST_URL` and
+   `UPSTASH_REDIS_REST_TOKEN`. Vercel will also set `KV_*` aliases for any
+   legacy code, but the API routes only need the `UPSTASH_*` pair.
 7. Trigger a redeploy from the Deployments tab so the new env vars are picked
    up. Pushing a fresh commit to main also redeploys.
 
