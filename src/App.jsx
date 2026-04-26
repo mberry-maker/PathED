@@ -29,6 +29,43 @@ const FontStyles = () => (
     .acc-card:hover { box-shadow: 0 6px 18px rgba(10, 37, 64, 0.07); }
     .tap { min-height: 48px; }
     .mobile-cta-bar { display: none; }
+    .print-only { display: none; }
+    @media print {
+      @page { margin: 0.5in; }
+      html, body { background: #fff !important; }
+      .no-print, .topbar, .mobile-cta-bar, .email-capture, .footer-actions { display: none !important; }
+      .print-only { display: block !important; }
+      .container-wrap { padding: 0 !important; max-width: 100% !important; }
+      .results-header {
+        background: #fff !important;
+        color: #0a2540 !important;
+        border: 1.5px solid #0a2540 !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        padding: 22px 26px !important;
+        page-break-inside: avoid;
+      }
+      .results-header .gen-date { color: #0a2540 !important; }
+      .results-header .mono { color: #127572 !important; }
+      .cta-block {
+        background: #fff !important;
+        color: #0a2540 !important;
+        border: 1.5px solid #0a2540 !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        padding: 24px 26px !important;
+      }
+      .cta-block .cta-headline { color: #0a2540 !important; }
+      .cta-block p { color: #27303f !important; opacity: 1 !important; }
+      .cta-block .mono { color: #127572 !important; }
+      .cta-block .book-this { background: #fff !important; color: #0a2540 !important; border: 1.5px solid #0a2540 !important; box-shadow: none !important; }
+      .cta-block { color-adjust: exact; -webkit-print-color-adjust: exact; }
+      h1, h2, h3 { page-break-after: avoid; }
+      .acc-card, .first-section, .first-section + div { page-break-inside: avoid; }
+      .acc-card { box-shadow: none !important; }
+      a { color: #0a2540 !important; text-decoration: underline !important; }
+      .stagger-1, .stagger-2, .stagger-3, .stagger-4, .stagger-5, .stagger-6, .stagger-7 { animation: none !important; }
+    }
     @media (max-width: 600px) {
       .tb-sub { display: none !important; }
       .tb-progress { width: 56px !important; }
@@ -428,6 +465,7 @@ export default function PathED() {
   const [shareWithReese, setShareWithReese] = useState(true);
   const [emailOptIn, setEmailOptIn] = useState(true);
   const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [emailDelivery, setEmailDelivery] = useState(null); // "sent" | "failed" | null
   const [hp, setHp] = useState("");
 
   const update = (patch) => setData((d) => ({ ...d, ...patch }));
@@ -921,8 +959,9 @@ export default function PathED() {
 
   const handleEmailSubmit = async () => {
     if (!email || !email.includes("@")) return;
+    let delivery = null;
     try {
-      await fetch("/api/subscribe", {
+      const r = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -939,10 +978,19 @@ export default function PathED() {
           },
         }),
       });
+      const body = await r.json().catch(() => ({}));
+      // The subscriber is always added when the request succeeds. We only flag
+      // delivery as failed if the parent opted in to the email and the send
+      // step itself returned a non-success status.
+      if (emailOptIn) {
+        if (body.profileEmail === "sent") delivery = "sent";
+        else if (body.profileEmail === "failed") delivery = "failed";
+      }
     } catch (e) {
       console.error("Subscribe error:", e);
+      delivery = emailOptIn ? "failed" : null;
     }
-    // Always show success regardless, do not block on API errors.
+    setEmailDelivery(delivery);
     setEmailSubmitted(true);
   };
 
@@ -988,6 +1036,7 @@ export default function PathED() {
             emailOptIn={emailOptIn}
             setEmailOptIn={setEmailOptIn}
             emailSubmitted={emailSubmitted}
+            emailDelivery={emailDelivery}
             onEmailSubmit={handleEmailSubmit}
             hp={hp}
             setHp={setHp}
@@ -1000,11 +1049,59 @@ export default function PathED() {
 }
 
 // ============ LOGO ============
-// Inline SVG approximation of the AccommodatED Pathways mark: a small navy
-// figure (the head) under a teal chevron crown, with three rising arrows
-// sweeping to the right. If you drop a real raster or vector asset into
-// public/logo.png (or .svg), swap the <svg> below for an <img>.
+// LogoMark prefers a real asset at /logo.png, falling back to /logo.svg, then
+// to the inline SVG approximation below. Drop the real PathED Pathways file
+// into public/logo.png (or public/logo.svg) and the site picks it up
+// automatically on next deploy. The probe runs once per session via the
+// LOGO_PROBE module-level cache so we never thrash the network.
+const LOGO_PROBE = { state: "idle", src: null }; // "idle" | "checking" | "found" | "missing"
+
+function useResolvedLogo() {
+  const [src, setSrc] = useState(LOGO_PROBE.state === "found" ? LOGO_PROBE.src : null);
+  useEffect(() => {
+    if (LOGO_PROBE.state === "found") { setSrc(LOGO_PROBE.src); return; }
+    if (LOGO_PROBE.state === "missing" || LOGO_PROBE.state === "checking") return;
+    LOGO_PROBE.state = "checking";
+    const candidates = ["/logo.png", "/logo.svg"];
+    let cancelled = false;
+    (async () => {
+      for (const url of candidates) {
+        try {
+          const r = await fetch(url, { method: "HEAD" });
+          if (r.ok && !cancelled) {
+            LOGO_PROBE.state = "found";
+            LOGO_PROBE.src = url;
+            setSrc(url);
+            return;
+          }
+        } catch (_) { /* network error, try next */ }
+      }
+      if (!cancelled) {
+        LOGO_PROBE.state = "missing";
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  return src;
+}
+
 function LogoMark({ size = 28, ariaLabel }) {
+  const resolved = useResolvedLogo();
+  if (resolved) {
+    return (
+      <img
+        src={resolved}
+        alt={ariaLabel || "AccommodatED Pathways"}
+        width={size}
+        height={size}
+        style={{ display: "block", flexShrink: 0, objectFit: "contain" }}
+      />
+    );
+  }
+  return <LogoMarkSVG size={size} ariaLabel={ariaLabel} />;
+}
+
+function LogoMarkSVG({ size = 28, ariaLabel }) {
   return (
     <svg
       width={size}
@@ -1124,6 +1221,7 @@ function LogoLockup({ size = 64, align = "center", onLight = false, showTagline 
 function TopBar({ screen, step, totalSteps, onLogo, branch }) {
   return (
     <div
+      className="topbar"
       style={{
         borderBottom: `1px solid ${C.border}`,
         padding: "14px 24px",
@@ -2150,6 +2248,7 @@ function Results({
   emailOptIn,
   setEmailOptIn,
   emailSubmitted,
+  emailDelivery,
   onEmailSubmit,
   hp,
   setHp,
@@ -2165,6 +2264,11 @@ function Results({
 
   return (
     <div className="fade-in" style={{ paddingTop: 8 }}>
+      {/* Print-only lockup at the very top of the page */}
+      <div className="print-only" style={{ marginBottom: 18 }}>
+        <LogoLockup size={72} align="left" showTagline={true} />
+      </div>
+
       {/* Header */}
       <div
         className="stagger-1 results-header"
@@ -2437,7 +2541,7 @@ function Results({
 
       {/* Email capture */}
       <div
-        className="stagger-7"
+        className="stagger-7 email-capture"
         style={{
           background: C.surface,
           border: `1px solid ${C.border}`,
@@ -2564,6 +2668,18 @@ function Results({
               Send my profile →
             </button>
           </>
+        ) : emailDelivery === "failed" ? (
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: C.warning, marginBottom: 6 }}>
+              We couldn't email it just now.
+            </div>
+            <div style={{ fontSize: 14, color: C.text, lineHeight: 1.6 }}>
+              You're on the AccommodatED Pathways list, but the profile email
+              didn't go through. Use the Print or save as PDF button below to keep
+              a copy now. Reese will follow up at{" "}
+              <strong>{email}</strong> with the full profile shortly.
+            </div>
+          </div>
         ) : (
           <div>
             <div style={{ fontSize: 18, fontWeight: 600, color: C.success, marginBottom: 6 }}>
@@ -2579,6 +2695,7 @@ function Results({
       </div>
 
       <div
+        className="footer-actions"
         style={{
           display: "flex",
           gap: 8,

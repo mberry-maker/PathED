@@ -252,7 +252,7 @@ async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways"
 
   const payload = {
     from: { email: "contact@accommodatedpathways.com", name: fromName },
-    to: [{ email: to }],
+    to: [{ email: to, name: to.split("@")[0] }],
     subject,
     html,
     text: htmlToText(html),
@@ -262,6 +262,7 @@ async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways"
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Accept": "application/json",
       "X-Requested-With": "XMLHttpRequest",
       "Authorization": `Bearer ${token}`,
     },
@@ -270,10 +271,20 @@ async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways"
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    throw new Error(`MailerSend send failed: ${res.status} ${errText}`);
+    // Log the full body so the failure mode is visible in Vercel function logs.
+    // Common cases: 401 (bad/missing key), 403 (sender domain not verified),
+    // 422 (validation error, often trial accounts that can only send to the
+    // verified domain itself), 429 (rate limit on MailerSend's side).
+    console.error(
+      `MailerSend ${res.status} sending to ${to}: ${errText.slice(0, 800)}`
+    );
+    const err = new Error(`MailerSend ${res.status}`);
+    err.status = res.status;
+    err.body = errText;
+    throw err;
   }
 
-  // MailerSend returns 202 Accepted with empty body on success
+  // MailerSend returns 202 Accepted with empty body on success.
   return { ok: true, status: res.status };
 }
 
@@ -386,6 +397,8 @@ export default async function handler(req, res) {
   }
 
   // ── SEND PROFILE EMAIL TO PARENT ──────────────────────────────────────────
+  let profileEmailStatus = "skipped";
+  let profileEmailError = null;
   if (safeResults && emailOptIn) {
     try {
       const profileHTML = buildProfileEmail(safeResults, branch, profileData || {});
@@ -394,13 +407,21 @@ export default async function handler(req, res) {
         subject: "Your PathED Profile from AccommodatED Pathways",
         html: profileHTML,
       });
+      profileEmailStatus = "sent";
     } catch (e) {
-      // Log but don't fail, the subscriber is already added.
+      profileEmailStatus = "failed";
+      // Surface a short, non-leaky reason to the client. Full body is in logs.
+      if (e?.status === 401) profileEmailError = "auth";
+      else if (e?.status === 403) profileEmailError = "domain_unverified";
+      else if (e?.status === 422) profileEmailError = "trial_recipient_blocked";
+      else if (e?.status === 429) profileEmailError = "rate_limited";
+      else profileEmailError = "send_failed";
       console.error("Profile email failed:", e?.message);
     }
   }
 
   // ── NOTIFY REESE ──────────────────────────────────────────────────────────
+  let notifyStatus = "skipped";
   if (shareWithReese) {
     try {
       const notifyHTML = buildReeseNotification(branch, profileData || {}, cleanEmail);
@@ -409,10 +430,17 @@ export default async function handler(req, res) {
         subject: `PathED Lead · ${profileData?.grade || "Unknown grade"} · ${profileData?.feltNeed || ""}`,
         html: notifyHTML,
       });
+      notifyStatus = "sent";
     } catch (e) {
+      notifyStatus = "failed";
       console.error("Reese notification failed:", e?.message);
     }
   }
 
-  return res.status(200).json({ success: true });
+  return res.status(200).json({
+    success: true,
+    profileEmail: profileEmailStatus,
+    profileEmailError,
+    reeseNotification: notifyStatus,
+  });
 }
