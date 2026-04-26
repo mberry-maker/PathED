@@ -27,6 +27,34 @@ const FontStyles = () => (
     .opt-btn.is-sel { box-shadow: 0 8px 22px rgba(18, 117, 114, 0.22); transform: translateY(-1px); }
     .branch-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(10, 37, 64, 0.08); }
     .acc-card:hover { box-shadow: 0 6px 18px rgba(10, 37, 64, 0.07); }
+    .tap { min-height: 48px; }
+    .mobile-cta-bar { display: none; }
+    @media (max-width: 600px) {
+      .tb-sub { display: none !important; }
+      .tb-progress { width: 56px !important; }
+      .first-section h3 { font-size: 22px !important; }
+      .cta-headline { font-size: 24px !important; }
+      .results-header { padding: 28px 22px !important; }
+      .results-header h1, .results-header .gen-date { font-size: 24px !important; }
+      .cta-block { padding: 36px 24px !important; border-radius: 12px !important; }
+      .cta-block .book-this { width: 100%; text-align: center; }
+      .acc-card { padding: 22px 22px 22px 26px !important; }
+      .branch-btn { padding: 20px 20px !important; }
+      .container-wrap { padding: 28px 18px 140px !important; }
+      .mobile-cta-bar.show {
+        display: flex;
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 50;
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+        background: rgba(10, 37, 64, 0.96);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        gap: 12px;
+        align-items: center;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+    }
   `}</style>
 );
 
@@ -920,7 +948,7 @@ export default function PathED() {
         onLogo={reset}
         branch={branch}
       />
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "44px 28px 120px" }}>
+      <div className="container-wrap" style={{ maxWidth: 760, margin: "0 auto", padding: "44px 28px 120px" }}>
         {screen === "landing" && <Landing onPick={startBranch} />}
         {screen === "wizard" && currentStep && (
           <WizardStep
@@ -999,7 +1027,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
             Path<span style={{ color: C.teal }}>ED</span>
           </span>
           <span
-            className="mono"
+            className="mono tb-sub"
             style={{
               fontSize: 10,
               color: C.muted,
@@ -1033,6 +1061,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
               {String(step + 1).padStart(2, "0")} / {String(totalSteps).padStart(2, "0")}
             </span>
             <div
+              className="tb-progress"
               style={{
                 width: 90,
                 height: 2,
@@ -1397,12 +1426,13 @@ function WizardStep({
       >
         <button
           onClick={onBack}
+          className="tap"
           style={{
             background: "transparent",
             color: C.muted,
             border: "none",
-            padding: "10px 0",
-            fontSize: 13,
+            padding: "12px 14px 12px 0",
+            fontSize: 14,
             cursor: "pointer",
             fontWeight: 500,
             fontFamily: "inherit",
@@ -1413,6 +1443,7 @@ function WizardStep({
         <button
           onClick={onNext}
           disabled={!canAdvance}
+          className="tap"
           style={{
             background: canAdvance ? C.navy : C.bgAlt,
             color: canAdvance ? "#fff" : C.mutedLight,
@@ -1699,12 +1730,13 @@ function CascadeSelect({
                     return (
                       <label
                         key={item}
+                        className="tap"
                         style={{
                           display: "flex",
                           alignItems: "center",
                           gap: 12,
-                          padding: "10px 12px",
-                          fontSize: 13.5,
+                          padding: "12px 12px",
+                          fontSize: 14,
                           color: sel ? C.navy : C.text,
                           fontWeight: sel ? 500 : 400,
                           cursor: "pointer",
@@ -1990,7 +2022,7 @@ function Results({
     <div className="fade-in" style={{ paddingTop: 8 }}>
       {/* Header */}
       <div
-        className="stagger-1"
+        className="stagger-1 results-header"
         style={{
           background: `linear-gradient(135deg, ${C.navy} 0%, ${C.teal} 130%)`,
           color: "#fff",
@@ -2014,6 +2046,7 @@ function Results({
           PathED Profile · {BRANCHES[branch].short} Track
         </div>
         <div
+          className="gen-date"
           style={{
             fontSize: 30,
             color: "#fff",
@@ -2080,7 +2113,7 @@ function Results({
 
       {/* Primary CTA */}
       <div
-        className="stagger-7"
+        className="stagger-7 cta-block"
         style={{
           background: `linear-gradient(150deg, ${C.navy} 0%, ${C.navyDark} 100%)`,
           color: "#fff",
@@ -2121,6 +2154,7 @@ function Results({
           Your next step
         </div>
         <div
+          className="cta-headline"
           style={{
             fontSize: 30,
             fontWeight: 700,
@@ -2167,7 +2201,11 @@ function Results({
             href={ctas.primary.url}
             target="_blank"
             rel="noopener noreferrer"
+            className="book-this tap"
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
               background: C.teal,
               color: "#fff",
               padding: "16px 30px",
@@ -2334,43 +2372,84 @@ function Results({
       <div
         style={{
           display: "flex",
-          gap: 18,
+          gap: 8,
           paddingTop: 22,
           borderTop: `1px solid ${C.border}`,
-          fontSize: 12,
+          fontSize: 13,
           alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
         <button
           onClick={() => window.print()}
+          className="tap"
           style={{
             background: "transparent",
             color: C.muted,
             border: "none",
             cursor: "pointer",
-            fontSize: 12,
-            padding: 0,
+            fontSize: 13,
+            padding: "12px 14px",
             fontFamily: "inherit",
+            display: "inline-flex",
+            alignItems: "center",
           }}
         >
           🖨 Print or save as PDF
         </button>
-        <span style={{ color: C.borderStrong }}>·</span>
         <button
           onClick={onReset}
+          className="tap"
           style={{
             background: "transparent",
             color: C.muted,
             border: "none",
             cursor: "pointer",
-            fontSize: 12,
-            padding: 0,
+            fontSize: 13,
+            padding: "12px 14px",
             fontFamily: "inherit",
           }}
         >
           Start over
         </button>
       </div>
+
+      {/* Mobile-only sticky CTA. Hidden via CSS at >600px. */}
+      <a
+        href={ctas.primary.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mobile-cta-bar show"
+        style={{
+          color: "#fff",
+          textDecoration: "none",
+          fontSize: 14,
+          fontWeight: 600,
+        }}
+      >
+        <span style={{ flex: 1, lineHeight: 1.3 }}>
+          <span style={{ display: "block", fontSize: 11, color: C.tealLight, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, marginBottom: 2 }}>
+            Your next step
+          </span>
+          {ctas.primary.service} · {ctas.primary.price}
+        </span>
+        <span
+          style={{
+            background: C.teal,
+            color: "#fff",
+            padding: "12px 18px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            minHeight: 48,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+        >
+          Book →
+        </span>
+      </a>
     </div>
   );
 }
@@ -2380,7 +2459,10 @@ function Section({ number, title, children, className, isFirst }) {
   const numSize = isFirst ? 13 : 11;
   const titleSize = isFirst ? 26 : 20;
   return (
-    <div className={className} style={{ marginBottom: isFirst ? 64 : 52 }}>
+    <div
+      className={`${className || ""} ${isFirst ? "first-section" : ""}`.trim()}
+      style={{ marginBottom: isFirst ? 64 : 52 }}
+    >
       <div
         style={{
           display: "flex",
