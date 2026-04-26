@@ -1115,7 +1115,7 @@ function Landing({ onPick }) {
         >
           Where are you right now?
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {Object.values(BRANCHES).map((b) => (
             <button
               key={b.id}
@@ -1123,16 +1123,17 @@ function Landing({ onPick }) {
               style={{
                 background: C.surface,
                 border: `1px solid ${C.border}`,
-                padding: "16px 18px",
-                borderRadius: 4,
+                padding: "18px 20px",
+                borderRadius: 6,
                 cursor: "pointer",
                 textAlign: "left",
                 display: "flex",
                 alignItems: "center",
-                gap: 14,
+                gap: 18,
                 color: C.text,
                 fontSize: 14,
                 lineHeight: 1.5,
+                flexWrap: "wrap",
               }}
               onMouseOver={(e) => {
                 e.currentTarget.style.borderColor = C.teal;
@@ -1144,21 +1145,26 @@ function Landing({ onPick }) {
               }}
             >
               <span
-                className="num"
+                className="mono"
                 style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: C.teal,
+                  display: "inline-block",
                   flexShrink: 0,
-                  width: 36,
-                  letterSpacing: "0.05em",
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: "#fff",
+                  background: C.teal,
+                  padding: "5px 11px",
+                  borderRadius: 999,
+                  letterSpacing: "0.12em",
                   textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                  lineHeight: 1.2,
                 }}
               >
                 {b.short}
               </span>
-              <span style={{ flex: 1 }}>{b.label}</span>
-              <span style={{ color: C.mutedLight, fontSize: 16 }}>→</span>
+              <span style={{ flex: 1, minWidth: 200 }}>{b.label}</span>
+              <span style={{ color: C.mutedLight, fontSize: 16, flexShrink: 0 }}>→</span>
             </button>
           ))}
         </div>
@@ -2255,15 +2261,23 @@ function Results({
 
 function Section({ number, title, children, className }) {
   return (
-    <div className={className} style={{ marginBottom: 36 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
+    <div className={className} style={{ marginBottom: 40 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
         <span
           className="num"
           style={{
-            fontSize: 12,
-            color: C.teal,
-            fontWeight: 600,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 30,
+            height: 30,
+            borderRadius: "50%",
+            background: C.teal,
+            color: "#fff",
+            fontSize: 11,
+            fontWeight: 700,
             letterSpacing: "0.04em",
+            flexShrink: 0,
           }}
         >
           {number}
@@ -2276,10 +2290,19 @@ function Section({ number, title, children, className }) {
             margin: 0,
             lineHeight: 1.25,
             letterSpacing: "-0.02em",
+            flex: 1,
           }}
         >
           {title}
         </h3>
+        <span
+          style={{
+            flex: 1,
+            height: 1,
+            background: `linear-gradient(to right, ${C.border}, transparent)`,
+            minWidth: 24,
+          }}
+        />
       </div>
       <div>{children}</div>
     </div>
@@ -2290,7 +2313,14 @@ function SectionBody({ section }) {
   // Render based on section.type
   if (section.type === "narrative") {
     return (
-      <p style={{ fontSize: 15.5, lineHeight: 1.7, color: C.text, margin: 0 }}>
+      <p
+        style={{
+          fontSize: 15.5,
+          lineHeight: 1.75,
+          color: C.text,
+          margin: 0,
+        }}
+      >
         {section.body}
       </p>
     );
@@ -2301,7 +2331,7 @@ function SectionBody({ section }) {
         <div
           style={{
             fontSize: 17,
-            lineHeight: 1.5,
+            lineHeight: 1.45,
             color: C.navy,
             fontWeight: 600,
             marginBottom: 12,
@@ -2310,21 +2340,36 @@ function SectionBody({ section }) {
         >
           {section.headline}
         </div>
-        <p style={{ fontSize: 14, lineHeight: 1.7, color: C.text, marginBottom: 14 }}>
+        <p style={{ fontSize: 14.5, lineHeight: 1.75, color: C.text, marginBottom: section.callout ? 16 : 0 }}>
           {section.body}
         </p>
         {section.callout && (
           <div
             style={{
-              padding: "13px 16px",
+              position: "relative",
+              padding: "14px 18px 14px 20px",
               background: C.tealSoft,
-              borderLeft: `3px solid ${C.teal}`,
+              borderLeft: `4px solid ${C.teal}`,
               fontSize: 13.5,
-              lineHeight: 1.65,
+              lineHeight: 1.7,
               color: C.text,
-              borderRadius: "0 4px 4px 0",
+              borderRadius: "0 6px 6px 0",
             }}
           >
+            <span
+              className="mono"
+              style={{
+                display: "block",
+                fontSize: 9.5,
+                fontWeight: 700,
+                color: C.teal,
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                marginBottom: 5,
+              }}
+            >
+              Worth knowing
+            </span>
             {section.callout}
           </div>
         )}
@@ -2333,41 +2378,64 @@ function SectionBody({ section }) {
   }
   if (section.type === "accommodations") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {section.items.map((a, i) => (
           <div
             key={i}
             style={{
-              padding: "18px 20px",
+              position: "relative",
+              padding: "20px 22px 20px 26px",
               background: C.surface,
               border: `1px solid ${C.border}`,
-              borderRadius: 5,
+              borderRadius: 8,
+              boxShadow: "0 1px 2px rgba(10, 37, 64, 0.04)",
+              overflow: "hidden",
             }}
           >
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                bottom: 0,
+                width: 4,
+                background: a.tag === "STRENGTHEN" ? C.warning : C.teal,
+              }}
+            />
             <div
               style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: C.navy,
-                marginBottom: 12,
-                letterSpacing: "-0.01em",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: 14,
               }}
             >
-              {a.name}
+              <span
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: C.navy,
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.3,
+                }}
+              >
+                {a.name}
+              </span>
               {a.tag && (
                 <span
                   className="mono"
                   style={{
-                    marginLeft: 10,
                     fontSize: 9.5,
-                    fontWeight: 600,
+                    fontWeight: 700,
                     background: a.tag === "STRENGTHEN" ? C.warningSoft : C.tealSoft,
                     color: a.tag === "STRENGTHEN" ? C.warning : C.teal,
-                    padding: "2px 7px",
-                    borderRadius: 2,
+                    padding: "3px 9px",
+                    borderRadius: 999,
                     textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    verticalAlign: "middle",
+                    letterSpacing: "0.1em",
+                    lineHeight: 1.4,
                   }}
                 >
                   {a.tag === "STRENGTHEN" ? "Strengthen" : "Add"}
@@ -2384,31 +2452,52 @@ function SectionBody({ section }) {
   }
   if (section.type === "questions") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          padding: "20px 22px",
+          background: C.bgAlt,
+          border: `1px solid ${C.border}`,
+          borderRadius: 8,
+        }}
+      >
         {section.items.map((q, i) => (
           <div
             key={i}
             style={{
               display: "flex",
               gap: 14,
-              paddingBottom: 12,
-              borderBottom: i < section.items.length - 1 ? `1px solid ${C.border}` : "none",
+              alignItems: "flex-start",
+              paddingBottom: i < section.items.length - 1 ? 12 : 0,
+              borderBottom:
+                i < section.items.length - 1 ? `1px dashed ${C.borderStrong}` : "none",
             }}
           >
             <span
               className="num"
               style={{
-                fontSize: 18,
-                color: C.teal,
-                fontWeight: 600,
-                flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
                 width: 28,
-                paddingTop: 2,
+                height: 28,
+                borderRadius: "50%",
+                background: C.surface,
+                border: `1.5px solid ${C.teal}`,
+                color: C.teal,
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+                marginTop: 1,
               }}
             >
               {String(i + 1).padStart(2, "0")}
             </span>
-            <div style={{ fontSize: 14.5, lineHeight: 1.6, color: C.text }}>{q}</div>
+            <div style={{ fontSize: 14.5, lineHeight: 1.55, color: C.text, paddingTop: 4 }}>
+              {q}
+            </div>
           </div>
         ))}
       </div>
@@ -2416,21 +2505,30 @@ function SectionBody({ section }) {
   }
   if (section.type === "list_with_actions") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {section.items.map((t, i) => (
-          <div key={i} style={{ paddingLeft: 14, borderLeft: `2px solid ${C.teal}` }}>
+          <div
+            key={i}
+            style={{
+              padding: "14px 18px 14px 18px",
+              background: C.surface,
+              border: `1px solid ${C.border}`,
+              borderLeft: `3px solid ${C.teal}`,
+              borderRadius: "0 6px 6px 0",
+            }}
+          >
             <div
               style={{
                 fontSize: 15,
                 fontWeight: 600,
                 color: C.navy,
-                marginBottom: 5,
+                marginBottom: 6,
                 letterSpacing: "-0.01em",
               }}
             >
               {t.title}
             </div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.65, color: C.text }}>{t.body}</div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text }}>{t.body}</div>
           </div>
         ))}
       </div>

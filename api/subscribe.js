@@ -131,10 +131,10 @@ function buildProfileEmail(results, branch, data) {
 
 function buildReeseNotification(branch, data, email) {
   const branchLabels = {
-    exploring: "Exploring — no plan yet, real concerns",
-    watching: "Watching — things slipping, not in crisis",
-    inProcess: "In Process — currently in evaluation",
-    implementing: "Implementing — has 504 or IEP",
+    exploring: "Exploring · no plan yet, real concerns",
+    watching: "Watching · things slipping, not in crisis",
+    inProcess: "In Process · currently in evaluation",
+    implementing: "Implementing · has 504 or IEP",
   };
   return `<!DOCTYPE html>
 <html lang="en">
@@ -142,7 +142,7 @@ function buildReeseNotification(branch, data, email) {
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafaf8;margin:0;padding:24px;">
 <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e2dc;border-radius:8px;padding:28px;">
   <div style="background:#0a2540;border-radius:6px;padding:18px 20px;margin-bottom:20px;">
-    <p style="color:#4ba8a4;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 4px;font-weight:600;">PathED Lead — Share Requested</p>
+    <p style="color:#4ba8a4;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 4px;font-weight:600;">PathED Lead · Share Requested</p>
     <h2 style="color:#fff;font-size:20px;margin:0;">New profile ready to review</h2>
   </div>
   <table style="width:100%;border-collapse:collapse;">
@@ -160,26 +160,59 @@ function buildReeseNotification(branch, data, email) {
 </html>`;
 }
 
-// ─── SEND VIA MAILERLITE TRANSACTIONAL ────────────────────────────────────────
+// ─── SEND VIA MAILERSEND TRANSACTIONAL ────────────────────────────────────────
+// MailerLite's "Transactional Emails" feature is fulfilled by MailerSend
+// (their sister product). The API lives at api.mailersend.com/v1/email.
+// MAILERSEND_API_TOKEN is preferred. We fall back to MAILERLITE_API_KEY only
+// because some accounts share a single token across both products.
+function htmlToText(html) {
+  return String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways" }) {
-  const res = await fetch("https://connect.mailerlite.com/api/emails", {
+  const token = process.env.MAILERSEND_API_TOKEN || process.env.MAILERLITE_API_KEY;
+  if (!token) {
+    throw new Error("Missing MAILERSEND_API_TOKEN (or MAILERLITE_API_KEY fallback)");
+  }
+
+  const payload = {
+    from: { email: "contact@accommodatedpathways.com", name: fromName },
+    to: [{ email: to }],
+    subject,
+    html,
+    text: htmlToText(html),
+  };
+
+  const res = await fetch("https://api.mailersend.com/v1/email", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.MAILERLITE_API_KEY}`,
+      "X-Requested-With": "XMLHttpRequest",
+      "Authorization": `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      from: { email: "contact@accommodatedpathways.com", name: fromName },
-      to: [{ email: to }],
-      subject,
-      html,
-    }),
+    body: JSON.stringify(payload),
   });
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`MailerLite send failed: ${res.status} — ${JSON.stringify(err)}`);
+    const errText = await res.text().catch(() => "");
+    throw new Error(`MailerSend send failed: ${res.status} ${errText}`);
   }
-  return res.json();
+
+  // MailerSend returns 202 Accepted with empty body on success
+  return { ok: true, status: res.status };
 }
 
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
@@ -263,7 +296,7 @@ export default async function handler(req, res) {
       const profileHTML = buildProfileEmail(results, branch, profileData || {});
       await sendEmail({
         to: cleanEmail,
-        subject: "Your PathED Profile — AccommodatED Pathways",
+        subject: "Your PathED Profile from AccommodatED Pathways",
         html: profileHTML,
       });
     } catch (e) {
@@ -278,7 +311,7 @@ export default async function handler(req, res) {
       const notifyHTML = buildReeseNotification(branch, profileData || {}, cleanEmail);
       await sendEmail({
         to: "contact@accommodatedpathways.com",
-        subject: `PathED Lead — ${profileData?.grade || "Unknown grade"} · ${profileData?.feltNeed || ""}`,
+        subject: `PathED Lead · ${profileData?.grade || "Unknown grade"} · ${profileData?.feltNeed || ""}`,
         html: notifyHTML,
       });
     } catch (e) {
