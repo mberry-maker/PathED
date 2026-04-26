@@ -375,8 +375,16 @@ const routeCTA = (branch, feltNeed) => {
     "I think we need to escalate (e.g. 504 to IEP)": ["iepReview", "meetingPrep"],
     "I need help preparing for our next review": ["meetingPrep", "iepReview"],
   };
-  const route = map[feltNeed] || ["pathPlanning", null];
-  return { primary: CTA_MAP[route[0]], secondary: route[1] ? CTA_MAP[route[1]] : null };
+  const [primaryKey, mappedSecondaryKey] = map[feltNeed] || ["pathPlanning", null];
+  // Path Planning is always the secondary when it is not already the primary.
+  // No result should pair two high-ticket services without Path Planning
+  // present somewhere, and a null secondary defaults to Path Planning.
+  const secondaryKey =
+    primaryKey === "pathPlanning" ? mappedSecondaryKey : "pathPlanning";
+  return {
+    primary: CTA_MAP[primaryKey],
+    secondary: secondaryKey ? CTA_MAP[secondaryKey] : null,
+  };
 };
 
 // ============ MAIN COMPONENT ============
@@ -2387,20 +2395,42 @@ function Results({
               lineHeight: 1.55,
             }}
           >
-            <span style={{ opacity: 0.7 }}>Also worth considering: </span>
-            <a
-              href={ctas.secondary.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: C.tealLight,
-                fontWeight: 500,
-                textDecoration: "underline",
-                textUnderlineOffset: 3,
-              }}
-            >
-              {ctas.secondary.service} ({ctas.secondary.price})
-            </a>
+            {ctas.secondary.service === "Path Planning" ? (
+              <span style={{ opacity: 0.85 }}>
+                Not sure where to start?{" "}
+                <a
+                  href={ctas.secondary.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: C.tealLight,
+                    fontWeight: 500,
+                    textDecoration: "underline",
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  Path Planning ($29 · 30 min)
+                </a>{" "}
+                is a good first step.
+              </span>
+            ) : (
+              <>
+                <span style={{ opacity: 0.7 }}>Also worth considering: </span>
+                <a
+                  href={ctas.secondary.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: C.tealLight,
+                    fontWeight: 500,
+                    textDecoration: "underline",
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  {ctas.secondary.service} ({ctas.secondary.price})
+                </a>
+              </>
+            )}
           </div>
         )}
       </div>
