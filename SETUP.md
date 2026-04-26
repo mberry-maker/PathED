@@ -198,6 +198,39 @@ Academy can live in the same repo or a separate one. Separate is cleaner for two
 
 ---
 
+## Vercel KV for rate limiting
+
+Both `api/generate.js` and `api/subscribe.js` use `@vercel/kv` to count requests
+per IP. Without a KV store connected, the code logs a warning and lets every
+request through. Set this up in five minutes in the Vercel dashboard.
+
+1. Vercel dashboard, open the `pathed` project, click **Storage** in the top nav.
+2. Click **Create Database** and pick the Redis option (Vercel KV is now sold
+   as the Upstash for Redis marketplace integration). The free tier is plenty.
+3. Region, pick the same region as the Vercel project. For most US projects
+   that is **iad1 (Washington)**. Same region keeps cold-call latency low.
+4. Name the database `pathed-kv`.
+5. On the connect screen, check **Production**, **Preview**, and **Development**
+   so the env vars are injected into all three environments.
+6. Click **Connect**. Vercel injects the connection vars into the project:
+   `KV_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `KV_REST_API_READ_ONLY_TOKEN`,
+   plus the Upstash equivalents.
+7. Trigger a redeploy from the Deployments tab so the new env vars are picked
+   up. Pushing a fresh commit to main also redeploys.
+
+To verify it works: open the live site, run the wizard once, then submit it
+nine times in a row. The ninth attempt should return a 429 with the message
+"Too many requests. Please wait a while before generating another profile."
+You can also tail Vercel function logs and confirm the **"Rate limit check
+failed"** warnings have stopped appearing.
+
+If the free Upstash tier ever feels tight (10,000 commands per day on the
+default plan), the rate limiter needs at most two commands per request, so
+that ceiling supports about 5,000 generates and 5,000 subscribes per day,
+roughly 50 paying parents per day's worth of activity.
+
+---
+
 ## Troubleshooting
 
 **"npm: command not found"** — Node.js isn't installed or isn't in your PATH. Restart your terminal after installing Node.
