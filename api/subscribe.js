@@ -210,8 +210,9 @@ function buildReeseNotification(branch, data, email) {
 // ─── SEND VIA MAILERSEND TRANSACTIONAL ────────────────────────────────────────
 // MailerLite's "Transactional Emails" feature is fulfilled by MailerSend
 // (their sister product). The API lives at api.mailersend.com/v1/email.
-// MAILERSEND_API_TOKEN is preferred. We fall back to MAILERLITE_API_KEY only
-// because some accounts share a single token across both products.
+// MAILERSEND_API_KEY is the env var Reese has set in Vercel. We fall back to
+// MAILERSEND_API_TOKEN or MAILERLITE_API_KEY only as a defensive measure,
+// since some accounts ship a single token across both products.
 function htmlToText(html) {
   return String(html)
     .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -230,9 +231,12 @@ function htmlToText(html) {
 }
 
 async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways" }) {
-  const token = process.env.MAILERSEND_API_TOKEN || process.env.MAILERLITE_API_KEY;
+  const token =
+    process.env.MAILERSEND_API_KEY ||
+    process.env.MAILERSEND_API_TOKEN ||
+    process.env.MAILERLITE_API_KEY;
   if (!token) {
-    throw new Error("Missing MAILERSEND_API_TOKEN (or MAILERLITE_API_KEY fallback)");
+    throw new Error("Missing MAILERSEND_API_KEY (no token fallback available)");
   }
 
   const payload = {
