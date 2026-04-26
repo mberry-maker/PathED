@@ -155,7 +155,7 @@ function buildProfileEmail(results, branch, data) {
   <div style="background:linear-gradient(135deg,#0a2540 0%,#127572 100%);border-radius:8px;padding:32px;margin-bottom:24px;">
     <p style="font-size:11px;letter-spacing:0.2em;color:#4ba8a4;text-transform:uppercase;font-weight:600;margin:0 0 10px;">PathED Profile · ${branchLabels[branch] || "General"} Track</p>
     <h1 style="font-size:26px;font-weight:700;color:#fff;margin:0 0 6px;letter-spacing:-0.02em;">Generated ${today}</h1>
-    <p style="font-size:12px;color:rgba(255,255,255,0.6);margin:0;font-family:monospace;letter-spacing:0.05em;">AccommodatED Pathways · contact@accommodatedpathways.com</p>
+    <p style="font-size:12px;color:rgba(255,255,255,0.6);margin:0;font-family:monospace;letter-spacing:0.05em;">AccommodatED Pathways · Progress, Made Personal · contact@accommodatedpathways.com</p>
   </div>
 
   <!-- Safeguard -->

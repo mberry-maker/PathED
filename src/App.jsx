@@ -991,6 +991,127 @@ export default function PathED() {
   );
 }
 
+// ============ LOGO ============
+// Inline SVG approximation of the AccommodatED Pathways mark: a small navy
+// figure (the head) under a teal chevron crown, with three rising arrows
+// sweeping to the right. If you drop a real raster or vector asset into
+// public/logo.png (or .svg), swap the <svg> below for an <img>.
+function LogoMark({ size = 28, ariaLabel }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 80 80"
+      role={ariaLabel ? "img" : "presentation"}
+      aria-label={ariaLabel}
+      aria-hidden={ariaLabel ? undefined : "true"}
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      {/* Crown chevrons. Outer pair in teal, inner peak in lighter teal. */}
+      <path
+        d="M6 38 L20 14 L34 32"
+        stroke="#127572"
+        strokeWidth="5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M74 38 L60 14 L46 32"
+        stroke="#127572"
+        strokeWidth="5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M26 30 L40 6 L54 30"
+        stroke="#1d918d"
+        strokeWidth="5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Person figure under the central peak */}
+      <circle cx="40" cy="28" r="4.5" fill="#0a2540" />
+      {/* Three rising arrows */}
+      <g
+        stroke="#127572"
+        strokeWidth="3.5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M10 46 C 24 38, 44 40, 60 46" />
+        <path d="M58 42 L62 46 L58 50" />
+      </g>
+      <g
+        stroke="#0a2540"
+        strokeWidth="3.8"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M10 56 C 24 48, 46 50, 62 56" />
+        <path d="M60 52 L64 56 L60 60" />
+      </g>
+      <g
+        stroke="#127572"
+        strokeWidth="3.5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M10 66 C 24 58, 48 60, 64 66" />
+        <path d="M62 62 L66 66 L62 70" />
+      </g>
+    </svg>
+  );
+}
+
+function LogoLockup({ size = 64, align = "center", onLight = false, showTagline = true }) {
+  const wordmarkColor = onLight ? "#fff" : "#0a2540";
+  const taglineColor = onLight ? "rgba(255,255,255,0.72)" : "#127572";
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: align === "center" ? "center" : "flex-start",
+        gap: 10,
+      }}
+    >
+      <LogoMark size={size} ariaLabel="AccommodatED Pathways" />
+      <div style={{ textAlign: align }}>
+        <div
+          style={{
+            fontSize: Math.round(size * 0.34),
+            fontWeight: 700,
+            color: wordmarkColor,
+            letterSpacing: "-0.01em",
+            lineHeight: 1.1,
+          }}
+        >
+          Accommodat<span style={{ color: onLight ? "#fff" : "#127572" }}>ED</span> Pathways
+        </div>
+        {showTagline && (
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: Math.round(size * 0.18),
+              fontWeight: 500,
+              color: taglineColor,
+              letterSpacing: "0.02em",
+            }}
+          >
+            Progress, Made Personal
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ============ TOP BAR ============
 function TopBar({ screen, step, totalSteps, onLogo, branch }) {
   return (
@@ -1018,29 +1139,36 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
       >
         <div
           onClick={onLogo}
-          style={{ cursor: "pointer", display: "flex", alignItems: "baseline", gap: 10 }}
+          role="button"
+          aria-label="AccommodatED Pathways. Return to start."
+          style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}
         >
-          <span
-            style={{
-              fontSize: 19,
-              fontWeight: 700,
-              color: C.navy,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Path<span style={{ color: C.teal }}>ED</span>
-          </span>
-          <span
-            className="mono tb-sub"
-            style={{
-              fontSize: 10,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-            }}
-          >
-            by AccommodatED
-          </span>
+          <LogoMark size={32} />
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.05 }}>
+            <span
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: C.navy,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Path<span style={{ color: C.teal }}>ED</span>
+            </span>
+            <span
+              className="mono tb-sub"
+              style={{
+                marginTop: 2,
+                fontSize: 9.5,
+                color: C.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                fontWeight: 600,
+              }}
+            >
+              AccommodatED Pathways
+            </span>
+          </div>
         </div>
         {screen === "wizard" && (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1093,7 +1221,10 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
 // ============ LANDING ============
 function Landing({ onPick }) {
   return (
-    <div className="fade-in" style={{ paddingTop: 32 }}>
+    <div className="fade-in" style={{ paddingTop: 8 }}>
+      <div style={{ marginBottom: 36, display: "flex", justifyContent: "flex-start" }}>
+        <LogoLockup size={80} align="left" />
+      </div>
       <div
         className="mono"
         style={{
@@ -2036,8 +2167,25 @@ function Results({
           borderRadius: 12,
           marginBottom: 32,
           boxShadow: "0 12px 32px rgba(10, 37, 64, 0.18)",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: 18,
+            right: 22,
+            opacity: 0.85,
+            background: "rgba(255,255,255,0.16)",
+            borderRadius: 14,
+            padding: 8,
+            display: "flex",
+          }}
+        >
+          <LogoMark size={40} />
+        </div>
         <div
           className="mono"
           style={{
@@ -2047,6 +2195,7 @@ function Results({
             textTransform: "uppercase",
             fontWeight: 600,
             marginBottom: 12,
+            paddingRight: 64,
           }}
         >
           PathED Profile · {BRANCHES[branch].short} Track
@@ -2072,7 +2221,7 @@ function Results({
             letterSpacing: "0.06em",
           }}
         >
-          AccommodatED Pathways · contact@accommodatedpathways.com
+          AccommodatED Pathways · Progress, Made Personal · contact@accommodatedpathways.com
         </div>
       </div>
 
