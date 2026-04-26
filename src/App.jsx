@@ -420,6 +420,7 @@ export default function PathED() {
   const [shareWithReese, setShareWithReese] = useState(true);
   const [emailOptIn, setEmailOptIn] = useState(true);
   const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [hp, setHp] = useState("");
 
   const update = (patch) => setData((d) => ({ ...d, ...patch }));
 
@@ -921,7 +922,8 @@ export default function PathED() {
           emailOptIn,
           shareWithReese,
           branch,
-          results,       // full AI-generated profile — used to build the HTML email
+          results,       // full AI-generated profile, used to build the HTML email
+          website: hp,   // honeypot, real users leave this empty
           data: {
             feltNeed:    data.feltNeed    || "",
             grade:       data.grade       || "",
@@ -932,7 +934,7 @@ export default function PathED() {
     } catch (e) {
       console.error("Subscribe error:", e);
     }
-    // Always show success regardless — don't block on API errors
+    // Always show success regardless, do not block on API errors.
     setEmailSubmitted(true);
   };
 
@@ -979,6 +981,8 @@ export default function PathED() {
             setEmailOptIn={setEmailOptIn}
             emailSubmitted={emailSubmitted}
             onEmailSubmit={handleEmailSubmit}
+            hp={hp}
+            setHp={setHp}
             onReset={reset}
           />
         )}
@@ -2008,6 +2012,8 @@ function Results({
   setEmailOptIn,
   emailSubmitted,
   onEmailSubmit,
+  hp,
+  setHp,
   onReset,
 }) {
   const today = new Date().toLocaleDateString("en-US", {
@@ -2270,6 +2276,30 @@ function Results({
             <div style={{ fontSize: 14.5, color: C.text, lineHeight: 1.6, marginBottom: 22 }}>
               We'll email you your full PathED Profile so you can save it, share it, or bring it
               to your next meeting.
+            </div>
+            {/* Honeypot, real users leave this empty. Hidden visually but */}
+            {/* labeled for accessibility tools so we never confuse a real user. */}
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: "-10000px",
+                top: "auto",
+                width: 1,
+                height: 1,
+                overflow: "hidden",
+              }}
+            >
+              <label htmlFor="pathed-website-field">Website</label>
+              <input
+                id="pathed-website-field"
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                value={hp}
+                onChange={(e) => setHp(e.target.value)}
+              />
             </div>
             <input
               type="email"
@@ -2535,6 +2565,7 @@ function SectionBody({ section }) {
     );
   }
   if (section.type === "headline_body") {
+    const isReadSection = /504|iep|eligib|plan/i.test(section.title || "");
     return (
       <>
         <div
@@ -2581,6 +2612,20 @@ function SectionBody({ section }) {
             </span>
             {section.callout}
           </div>
+        )}
+        {isReadSection && (
+          <p
+            style={{
+              marginTop: 12,
+              marginBottom: 0,
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: C.mutedLight,
+              fontStyle: "italic",
+            }}
+          >
+            This reflects the pattern you described, not a formal eligibility determination.
+          </p>
         )}
       </>
     );
@@ -2789,7 +2834,20 @@ function AccDetail({ label, body, italic, last }) {
 }
 
 // ============ PROMPT BUILDER ============
+function sanitizeFreeText(input) {
+  if (!input || typeof input !== "string") return "";
+  return input
+    .replace(/<[^>]*>/g, "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
 function buildPrompt(branch, d) {
+  const cleanStruggleOther = sanitizeFreeText(d.struggleOther);
+  const cleanDiagnosisOther = sanitizeFreeText(d.diagnosisOther);
+
   const struggleSummary =
     Object.entries(d.struggleSpecifics || {})
       .map(([cat, items]) => `${cat}: ${items.join(", ")}`)
@@ -2799,9 +2857,9 @@ function buildPrompt(branch, d) {
 GRADE: ${d.grade}
 PLAN STATUS: ${branch}
 ${d.planType ? `PLAN TYPE: ${d.planType}` : ""}
-${d.diagnoses?.length ? `DIAGNOSES: ${d.diagnoses.join(", ")}${d.diagnosisOther ? " (Other: " + d.diagnosisOther + ")" : ""}` : ""}
+${d.diagnoses?.length ? `DIAGNOSES: ${d.diagnoses.join(", ")}${cleanDiagnosisOther ? " (Other: " + cleanDiagnosisOther + ")" : ""}` : ""}
 ${d.struggleCategories?.length ? `STRUGGLES BY CATEGORY: ${struggleSummary}` : ""}
-${d.struggleOther ? `STRUGGLE OTHER NOTE: ${d.struggleOther}` : ""}
+${cleanStruggleOther ? `STRUGGLE OTHER NOTE: ${cleanStruggleOther}` : ""}
 ${d.schoolStance ? `SCHOOL STANCE: ${d.schoolStance}` : ""}
 ${d.monitoringDuration ? `MONITORING DURATION: ${d.monitoringDuration}` : ""}
 ${d.documented ? `DOCUMENTATION: ${d.documented}` : ""}

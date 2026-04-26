@@ -10,6 +10,53 @@ const ALLOWED_ORIGINS = [
   "https://tool.accommodatedpathways.com",
 ];
 
+// ─── TRUNCATION HELPER ───────────────────────────────────────────────────────
+// If the results payload exceeds 50KB, build a compact version that still has
+// the shape the email template expects: ctaHeadline, ctaBody, sections array.
+// Each section keeps its title and a clipped body / item list.
+function clip(value, n = 600) {
+  if (typeof value !== "string") return value;
+  return value.length > n ? value.slice(0, n - 1).trimEnd() + "..." : value;
+}
+
+function truncateResults(results) {
+  if (!results || typeof results !== "object") return null;
+  const sections = Array.isArray(results.sections) ? results.sections : [];
+  const compactSections = sections.slice(0, 6).map((s) => {
+    const out = { title: clip(s.title, 120), type: s.type };
+    if (s.type === "narrative") out.body = clip(s.body, 600);
+    if (s.type === "headline_body") {
+      out.headline = clip(s.headline, 200);
+      out.body = clip(s.body, 600);
+      if (s.callout) out.callout = clip(s.callout, 400);
+    }
+    if (s.type === "accommodations") {
+      out.items = (s.items || []).slice(0, 5).map((a) => ({
+        name: clip(a.name, 120),
+        tag: a.tag,
+        whyItHelps: clip(a.whyItHelps, 240),
+        howToAskFor: clip(a.howToAskFor, 240),
+        strengthenIt: clip(a.strengthenIt, 240),
+      }));
+    }
+    if (s.type === "questions") {
+      out.items = (s.items || []).slice(0, 5).map((q) => clip(q, 240));
+    }
+    if (s.type === "list_with_actions") {
+      out.items = (s.items || []).slice(0, 4).map((t) => ({
+        title: clip(t.title, 120),
+        body: clip(t.body, 320),
+      }));
+    }
+    return out;
+  });
+  return {
+    ctaHeadline: clip(results.ctaHeadline, 160),
+    ctaBody: clip(results.ctaBody, 480),
+    sections: compactSections,
+  };
+}
+
 // ─── EMAIL BUILDER ────────────────────────────────────────────────────────────
 function buildProfileEmail(results, branch, data) {
   const today = new Date().toLocaleDateString("en-US", {
@@ -246,13 +293,43 @@ export default async function handler(req, res) {
   }
 
   // Validate
-  const { email, emailOptIn, shareWithReese, branch, results, data: profileData } = req.body || {};
+  const {
+    email,
+    emailOptIn,
+    shareWithReese,
+    branch,
+    results,
+    data: profileData,
+    website, // honeypot, real users leave this empty
+  } = req.body || {};
+
+  // Honeypot, fail silently. Bots fill hidden fields, real users do not.
+  if (typeof website === "string" && website.trim().length > 0) {
+    console.warn("Honeypot tripped, dropping submission silently from", ip);
+    return res.status(200).json({ success: true });
+  }
 
   if (!email || typeof email !== "string" || !email.includes("@") || email.length > 254) {
     return res.status(400).json({ error: "Valid email required" });
   }
 
   const cleanEmail = email.toLowerCase().trim();
+
+  // Cap the inbound results object at 50KB. If a bigger object arrives (corrupt
+  // client, malicious payload, or model output that ballooned), build a compact
+  // summary that still contains the structural pieces the email template needs.
+  const RESULTS_LIMIT = 50 * 1024;
+  let safeResults = results;
+  try {
+    const size = Buffer.byteLength(JSON.stringify(results || {}), "utf8");
+    if (size > RESULTS_LIMIT) {
+      console.warn(`Results payload ${size} bytes exceeded ${RESULTS_LIMIT}, sending truncated summary`);
+      safeResults = truncateResults(results);
+    }
+  } catch (e) {
+    console.error("Results size check failed:", e?.message);
+    safeResults = null;
+  }
 
   // ── ADD TO MAILERLITE GROUPS ───────────────────────────────────────────────
   if (emailOptIn || shareWithReese) {
@@ -291,16 +368,16 @@ export default async function handler(req, res) {
   }
 
   // ── SEND PROFILE EMAIL TO PARENT ──────────────────────────────────────────
-  if (results && emailOptIn) {
+  if (safeResults && emailOptIn) {
     try {
-      const profileHTML = buildProfileEmail(results, branch, profileData || {});
+      const profileHTML = buildProfileEmail(safeResults, branch, profileData || {});
       await sendEmail({
         to: cleanEmail,
         subject: "Your PathED Profile from AccommodatED Pathways",
         html: profileHTML,
       });
     } catch (e) {
-      // Log but don't fail — subscriber is already added
+      // Log but don't fail, the subscriber is already added.
       console.error("Profile email failed:", e?.message);
     }
   }
