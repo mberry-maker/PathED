@@ -2839,6 +2839,67 @@ CLINICAL GUARDRAIL (NON-NEGOTIABLE):
 - Cite Procedural Safeguards Notice as the parent's source for documented rights.
 `;
 
+  // ─── CONDITIONAL RULES (additive, all may fire on the same profile) ───────
+  const conditionalRules = [];
+
+  // Rule 1: long monitoring duration without action.
+  const longMonitoring = [
+    "Two or more grading periods",
+    "A full school year or more",
+  ].includes(d.monitoringDuration);
+  if (longMonitoring) {
+    conditionalRules.push(
+      'RULE FIRED [MONITORING_DELAY]: The school has been "monitoring" for two or more grading periods without action. The output MUST include explicit language about the parent\'s right to request a formal evaluation in writing, and that in Texas a written request starts a 60 school day timeline to complete the Full Individual Evaluation. Add a brief one-line note that non-Texas families should check IDEA federal guidelines and their state department of education for their state\'s timeline. Place this language inside the most relevant existing section (the 504/IEP read callout for Exploring, the When to escalate section for Watching, the What to expect next callout for In Process, or the implementation review section for Implementing). Do not invent a new section.'
+    );
+  }
+
+  // Rule 2: outside evaluation that the school has not acted on.
+  const unactedPrivateEval =
+    d.privateEval === "Yes, but the school hasn't acted on it" ||
+    d.privateEval === "Yes, but the school hasn't seen it or acted on it";
+  if (unactedPrivateEval) {
+    if (branch === "implementing") {
+      conditionalRules.push(
+        "RULE FIRED [OUTSIDE_EVAL_IMPLEMENTING]: The family has an outside evaluation the school has not acted on. The output MUST explicitly state that schools are required to consider outside evaluations. Frame this as incorporating the outside evaluation into the existing plan review at the next ARD or 504 review. Reference Texas guidance that the team must consider the evaluation, even if it does not have to adopt every recommendation. Place this inside the Reading your current plan callout or the If implementation is the real issue list."
+      );
+    } else {
+      conditionalRules.push(
+        "RULE FIRED [OUTSIDE_EVAL_PRE_PLAN]: The family has an outside evaluation the school has not acted on. The output MUST explicitly state that schools are required to consider outside evaluations as part of the upcoming or requested evaluation, and that the parent can ask in writing for the report to be entered into the record. Place this inside the most relevant callout (504/IEP read for Exploring, When to escalate or What this might be telling you for Watching, What to expect next or What to push for in the evaluation for In Process)."
+      );
+    }
+  }
+
+  // Rule 3: dismissive school dynamic on a parent who is not yet inside a plan.
+  const dismissedRelationship = [
+    "I feel like I'm not being taken seriously",
+    "We've had real disagreements about my child's needs",
+  ].includes(d.schoolRelationship);
+  const passiveStance = [
+    "They say everything is fine",
+    "They're monitoring the situation",
+  ].includes(d.schoolStance);
+  if (
+    dismissedRelationship &&
+    passiveStance &&
+    branch !== "implementing"
+  ) {
+    conditionalRules.push(
+      "RULE FIRED [DISMISSED_PARENT_RIGHTS_QUESTION]: The parent feels dismissed and the school is treating the situation as fine or monitoring only. The questions section MUST include at least one rights-based question that names a written request for a formal evaluation, written documentation of the school's response, or the Procedural Safeguards Notice. Phrase the question in calm consultant voice, not adversarial."
+    );
+  }
+
+  // Rule 4: dyslexia disclosed.
+  const hasDyslexia = (d.diagnoses || []).includes("Dyslexia");
+  if (hasDyslexia) {
+    conditionalRules.push(
+      "RULE FIRED [DYSLEXIA_HB1886]: Dyslexia is on the diagnoses list. The output MUST reference Texas HB 1886 and the TEA Dyslexia Handbook in the most relevant callout or list_with_actions section. Add a brief one-line note that families outside Texas should check their state department of education for that state's dyslexia screening law. Do not assume the family has the handbook. Refer to it by name so they can search for it."
+    );
+  }
+
+  const conditionalBlock = conditionalRules.length
+    ? `\nCONDITIONAL RULES (these MUST be honored, they are additive and can all fire on the same profile):\n- ${conditionalRules.join("\n- ")}\n`
+    : "";
+
   // Branch-specific output structure instructions
   const branchInstructions = {
     exploring: `
@@ -2884,7 +2945,7 @@ This parent is in the IN PROCESS track: actively in the evaluation pipeline or p
 
 5. {"title": "Questions to bring to your meeting.", "type": "questions", "items": [3-5 questions calibrated to processStage and concerns]}
 
-6. {"title": "If they say 'not eligible' — what then.", "type": "list_with_actions", "items": [2 items: appeal rights, IEE at public expense, written disagreement on the FIE. Calm and factual. This section ONLY if the parent flagged eligibility worry; if they didn't, replace with 'Things to keep in mind' general items.]}
+6. {"title": "If they say not eligible, what then.", "type": "list_with_actions", "items": [2 items: appeal rights, IEE at public expense, written disagreement on the FIE. Calm and factual. This section ONLY if the parent flagged eligibility worry; if they didn't, replace with 'Things to keep in mind' general items.]}
 `,
 
     implementing: `
@@ -2913,7 +2974,7 @@ ${voiceRules}
 
 OUTPUT REQUIREMENTS for this ${branch.toUpperCase()} track:
 ${branchInstructions[branch]}
-
+${conditionalBlock}
 ALSO INCLUDE in the JSON:
 - "ctaHeadline": One short sentence (under 12 words) that frames the next step based on their feltNeed.
 - "ctaBody": 2-3 sentences body explaining what the recommended service does for them specifically. Match the routing logic: feltNeed maps to specific service. Do NOT mention price in this body. Reference the parent's specific situation.
