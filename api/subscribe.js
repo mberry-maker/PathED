@@ -160,26 +160,29 @@ function buildReeseNotification(branch, data, email) {
 </html>`;
 }
 
-// ─── SEND VIA MAILERLITE TRANSACTIONAL ────────────────────────────────────────
+// ─── SEND VIA BREVO TRANSACTIONAL ─────────────────────────────────────────────
+// Brevo (formerly Sendinblue) endpoint. Header is api-key (not Bearer), the
+// payload uses "sender" instead of "from" and "htmlContent" instead of "html".
 async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways" }) {
-  const res = await fetch("https://connect.mailerlite.com/api/emails", {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.MAILERLITE_API_KEY}`,
+      "Accept": "application/json",
+      "api-key": process.env.BREVO_API_KEY,
     },
     body: JSON.stringify({
-      from: { email: "contact@accommodatedpathways.com", name: fromName },
+      sender: { email: "contact@accommodatedpathways.com", name: fromName },
       to: [{ email: to }],
       subject,
-      html,
+      htmlContent: html,
     }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`MailerLite send failed: ${res.status} — ${JSON.stringify(err)}`);
+    const err = await res.text().catch(() => "");
+    throw new Error(`Brevo send failed: ${res.status} ${err.slice(0, 400)}`);
   }
-  return res.json();
+  return res.json().catch(() => ({}));
 }
 
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
@@ -221,39 +224,48 @@ export default async function handler(req, res) {
 
   const cleanEmail = email.toLowerCase().trim();
 
-  // ── ADD TO MAILERLITE GROUPS ───────────────────────────────────────────────
+  // ── ADD TO BREVO LISTS ─────────────────────────────────────────────────────
+  // updateEnabled: true upserts the contact. listIds is an array of integers
+  // so parseInt the env vars defensively. Attribute keys are uppercase per
+  // Brevo convention.
   if (emailOptIn || shareWithReese) {
-    const groups = [];
-    if (emailOptIn) groups.push(process.env.MAILERLITE_GROUP_ID);
-    if (shareWithReese) groups.push(process.env.MAILERLITE_SHARE_GROUP_ID);
+    const listIds = [];
+    if (emailOptIn) {
+      const id = parseInt(process.env.BREVO_LIST_ID, 10);
+      if (!Number.isNaN(id)) listIds.push(id);
+    }
+    if (shareWithReese) {
+      const id = parseInt(process.env.BREVO_SHARE_LIST_ID, 10);
+      if (!Number.isNaN(id)) listIds.push(id);
+    }
 
     try {
-      const mlRes = await fetch("https://connect.mailerlite.com/api/subscribers", {
+      const brevoRes = await fetch("https://api.brevo.com/v3/contacts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.MAILERLITE_API_KEY}`,
+          "Accept": "application/json",
+          "api-key": process.env.BREVO_API_KEY,
         },
         body: JSON.stringify({
           email: cleanEmail,
-          status: "active",
-          resubscribe: true,
-          groups,
-          fields: {
-            pathed_branch:           branch                    || "",
-            pathed_felt_need:        profileData?.feltNeed     || "",
-            pathed_grade:            profileData?.grade        || "",
-            pathed_school_stance:    profileData?.schoolStance || "",
-            pathed_share_with_reese: shareWithReese ? "yes" : "no",
+          updateEnabled: true,
+          listIds,
+          attributes: {
+            PATHED_BRANCH:        branch                    || "",
+            PATHED_FELT_NEED:     profileData?.feltNeed     || "",
+            PATHED_GRADE:         profileData?.grade        || "",
+            PATHED_SCHOOL_STANCE: profileData?.schoolStance || "",
+            PATHED_SHARE_REESE:   shareWithReese ? "yes" : "no",
           },
         }),
       });
-      if (!mlRes.ok) {
-        const err = await mlRes.json().catch(() => ({}));
-        console.error("MailerLite subscriber error:", mlRes.status, err);
+      if (!brevoRes.ok) {
+        const err = await brevoRes.json().catch(() => ({}));
+        console.error("Brevo contact error:", brevoRes.status, err);
       }
     } catch (e) {
-      console.error("MailerLite subscriber add failed:", e?.message);
+      console.error("Brevo contact add failed:", e?.message);
     }
   }
 
