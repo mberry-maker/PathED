@@ -1211,7 +1211,13 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
 // ============ LANDING ============
 function Landing({ onPick }) {
   return (
-    <div className="fade-in" style={{ paddingTop: 32 }}>
+    <div className="fade-in" style={{ paddingTop: 16 }}>
+      <img
+        src="/logo_no_writing.svg"
+        alt="AccommodatED Pathways"
+        style={{ height: 72, width: "auto", display: "block", marginBottom: 24 }}
+        onError={(e) => { e.target.style.display = 'none'; }}
+      />
       <div
         className="mono"
         style={{
