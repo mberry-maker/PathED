@@ -1149,7 +1149,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
         <div
           onClick={onLogo}
           role="button"
-          aria-label="PathED by AccommodatED. Return to start."
+          aria-label="PathED by AccommodatED Pathways. Return to start."
           style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
         >
           <img
@@ -1166,7 +1166,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
               letterSpacing: "-0.02em",
             }}
           >
-            Path<span style={{ color: C.teal }}>ED</span> by AccommodatED
+            Path<span style={{ color: C.teal }}>ED</span> by AccommodatED Pathways
           </span>
         </div>
         {screen === "wizard" && (
