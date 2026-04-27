@@ -1112,12 +1112,12 @@ export default function PathED() {
 }
 
 // ============ LOGO ============
-// LogoMark prefers a real asset at /logo.png, falling back to /logo.svg, then
-// to the inline SVG approximation below. Drop the real PathED Pathways file
-// into public/logo.png (or public/logo.svg) and the site picks it up
-// automatically on next deploy. The probe runs once per session via the
-// LOGO_PROBE module-level cache so we never thrash the network.
+// LogoMark prefers a real asset under public/, falling back to the inline
+// SVG approximation below. The probe runs once per session via the
+// LOGO_PROBE module-level cache so we never thrash the network. Drop a
+// file at any of the candidate paths and the site picks it up.
 const LOGO_PROBE = { state: "idle", src: null }; // "idle" | "checking" | "found" | "missing"
+const LOGO_CANDIDATES = ["/THEE_logo__2_.png", "/logo.png", "/logo.svg"];
 
 function useResolvedLogo() {
   const [src, setSrc] = useState(LOGO_PROBE.state === "found" ? LOGO_PROBE.src : null);
@@ -1125,10 +1125,9 @@ function useResolvedLogo() {
     if (LOGO_PROBE.state === "found") { setSrc(LOGO_PROBE.src); return; }
     if (LOGO_PROBE.state === "missing" || LOGO_PROBE.state === "checking") return;
     LOGO_PROBE.state = "checking";
-    const candidates = ["/logo.png", "/logo.svg"];
     let cancelled = false;
     (async () => {
-      for (const url of candidates) {
+      for (const url of LOGO_CANDIDATES) {
         try {
           const r = await fetch(url, { method: "HEAD" });
           if (r.ok && !cancelled) {
@@ -1155,9 +1154,14 @@ function LogoMark({ size = 28, ariaLabel }) {
       <img
         src={resolved}
         alt={ariaLabel || "AccommodatED Pathways"}
-        width={size}
-        height={size}
-        style={{ display: "block", flexShrink: 0, objectFit: "contain" }}
+        style={{
+          display: "block",
+          flexShrink: 0,
+          height: size,
+          width: "auto",
+          maxWidth: size * 4, // safety cap so a wide lockup PNG cannot blow the layout
+          objectFit: "contain",
+        }}
       />
     );
   }
@@ -1240,6 +1244,33 @@ function LogoMarkSVG({ size = 28, ariaLabel }) {
 function LogoLockup({ size = 64, align = "center", onLight = false, showTagline = true }) {
   const wordmarkColor = onLight ? "#fff" : "#0a2540";
   const taglineColor = onLight ? "rgba(255,255,255,0.72)" : "#127572";
+  // The real lockup PNG already bakes in the wordmark and tagline. When a
+  // real asset resolves, render it bigger and skip the text below to avoid
+  // doubling the wordmark. The SVG fallback is just the graphic, so the text
+  // wordmark + tagline stay on for that case.
+  const resolved = useResolvedLogo();
+  if (resolved) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: align === "center" ? "center" : "flex-start",
+        }}
+      >
+        <img
+          src={resolved}
+          alt="AccommodatED Pathways. Progress, Made Personal."
+          style={{
+            display: "block",
+            height: Math.round(size * 1.6),
+            width: "auto",
+            maxWidth: "100%",
+            objectFit: "contain",
+          }}
+        />
+      </div>
+    );
+  }
   return (
     <div
       style={{
@@ -1249,7 +1280,7 @@ function LogoLockup({ size = 64, align = "center", onLight = false, showTagline 
         gap: 10,
       }}
     >
-      <LogoMark size={size} ariaLabel="AccommodatED Pathways" />
+      <LogoMarkSVG size={size} ariaLabel="AccommodatED Pathways" />
       <div style={{ textAlign: align }}>
         <div
           style={{
@@ -1282,6 +1313,7 @@ function LogoLockup({ size = 64, align = "center", onLight = false, showTagline 
 
 // ============ TOP BAR ============
 function TopBar({ screen, step, totalSteps, onLogo, branch }) {
+  const resolvedLogo = useResolvedLogo();
   return (
     <div
       className="topbar"
@@ -1312,7 +1344,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
           aria-label="AccommodatED Pathways. Return to start."
           style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}
         >
-          <LogoMark size={32} />
+          <LogoMark size={resolvedLogo ? 32 : 32} />
           <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.05 }}>
             <span
               style={{
@@ -1324,6 +1356,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
             >
               Path<span style={{ color: C.teal }}>ED</span>
             </span>
+            {!resolvedLogo && (
             <span
               className="mono tb-sub"
               style={{
@@ -1337,6 +1370,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
             >
               AccommodatED Pathways
             </span>
+            )}
           </div>
         </div>
         {screen === "wizard" && (
