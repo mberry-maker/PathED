@@ -457,6 +457,7 @@ export default function PathED() {
     accommodationsWorking: null,
     newConcerns: null,
     lastReview: null,
+    planHistory: null,
     schoolFollowsPlan: null,
   });
   const [results, setResults] = useState(null);
@@ -512,6 +513,7 @@ export default function PathED() {
       accommodationsWorking: null,
       newConcerns: null,
       lastReview: null,
+      planHistory: null,
       schoolFollowsPlan: null,
     });
   };
@@ -603,6 +605,38 @@ export default function PathED() {
         "Since early elementary",
         "Since they started school",
         "I've always wondered, just started looking now",
+      ],
+    };
+
+    // Lighter version for the Watching branch. Same field as schoolStance so
+    // buildPrompt and the Reese notification continue to work uniformly.
+    const schoolStanceLight = {
+      key: "schoolStanceLight",
+      title: "School position",
+      question: "What is the school currently saying?",
+      type: "single",
+      field: "schoolStance",
+      options: [
+        "Everything looks fine to them",
+        "They're keeping an eye on it",
+        "They suggested outside tutoring",
+        "We haven't really talked to them about it yet",
+      ],
+    };
+
+    // Plan tenure for the Implementing branch.
+    const planHistory = {
+      key: "planHistory",
+      title: "Plan history",
+      question: "How long has this plan been in place?",
+      type: "single",
+      field: "planHistory",
+      options: [
+        "Less than a school year",
+        "About a school year",
+        "1 to 2 school years",
+        "More than 2 school years",
+        "I'm not sure exactly",
       ],
     };
 
@@ -843,6 +877,7 @@ export default function PathED() {
         strugglesLight,
         teacherFeedback,
         triedAlready,
+        schoolStanceLight,
         schoolRelationship,
         feltNeed,
       ];
@@ -863,6 +898,7 @@ export default function PathED() {
       return [
         grade,
         planType,
+        planHistory,
         diagnosesStep,
         currentAccs,
         accsWorking,
@@ -969,7 +1005,10 @@ export default function PathED() {
           emailOptIn,
           shareWithReese,
           branch,
-          results,       // full AI-generated profile, used to build the HTML email
+          // Full AI-generated profile, used to build the HTML email. Capped
+          // client-side at 50KB so we never ship an oversized payload. The
+          // server runs the same cap as a defense-in-depth.
+          results: truncateForUpload(results),
           website: hp,   // honeypot, real users leave this empty
           // Full sanitized wizard data so the Reese notification can show
           // every answer the parent gave, not a summary.
@@ -997,6 +1036,7 @@ export default function PathED() {
             accommodationsWorking: data.accommodationsWorking || "",
             newConcerns: data.newConcerns || "",
             lastReview: data.lastReview || "",
+            planHistory: data.planHistory || "",
             schoolFollowsPlan: data.schoolFollowsPlan || "",
           },
         }),
@@ -3119,7 +3159,24 @@ function SectionBody({ section }) {
       </div>
     );
   }
-  return null;
+  // Unknown section type. Show whatever readable text the section carries
+  // (body, headline, or a stringified item list) so a future schema change
+  // does not produce a blank section on the user's screen.
+  const fallbackText =
+    section.body ||
+    section.headline ||
+    (Array.isArray(section.items)
+      ? section.items
+          .map((it) => (typeof it === "string" ? it : it?.title || it?.name || ""))
+          .filter(Boolean)
+          .join(" · ")
+      : "");
+  if (!fallbackText) return null;
+  return (
+    <p style={{ fontSize: 15, lineHeight: 1.7, color: C.text, margin: 0 }}>
+      {fallbackText}
+    </p>
+  );
 }
 
 function AccDetail({ label, body, italic, last }) {
@@ -3153,6 +3210,58 @@ function AccDetail({ label, body, italic, last }) {
 }
 
 // ============ PROMPT BUILDER ============
+// Trim a results object before posting to /api/subscribe. The server has its
+// own 50KB ceiling, but we run the same check here so we never even attempt
+// to ship a payload that the function would refuse. Returns an object with
+// the same email-template shape (ctaHeadline, ctaBody, sections), with each
+// long string clipped and arrays capped.
+function truncateForUpload(results) {
+  if (!results || typeof results !== "object") return results;
+  const size = (typeof Blob !== "undefined")
+    ? new Blob([JSON.stringify(results)]).size
+    : JSON.stringify(results).length;
+  if (size <= 50000) return results;
+
+  const clip = (v, n = 600) =>
+    typeof v === "string" && v.length > n ? v.slice(0, n - 1).trimEnd() + "..." : v;
+
+  const sections = Array.isArray(results.sections) ? results.sections : [];
+  const compact = sections.slice(0, 6).map((s) => {
+    const out = { title: clip(s.title, 120), type: s.type };
+    if (s.type === "narrative") out.body = clip(s.body, 600);
+    if (s.type === "headline_body") {
+      out.headline = clip(s.headline, 200);
+      out.body = clip(s.body, 600);
+      if (s.callout) out.callout = clip(s.callout, 400);
+    }
+    if (s.type === "accommodations") {
+      out.items = (s.items || []).slice(0, 5).map((a) => ({
+        name: clip(a.name, 120),
+        tag: a.tag,
+        whyItHelps: clip(a.whyItHelps, 240),
+        howToAskFor: clip(a.howToAskFor, 240),
+        strengthenIt: clip(a.strengthenIt, 240),
+      }));
+    }
+    if (s.type === "questions") {
+      out.items = (s.items || []).slice(0, 5).map((q) => clip(q, 240));
+    }
+    if (s.type === "list_with_actions") {
+      out.items = (s.items || []).slice(0, 4).map((t) => ({
+        title: clip(t.title, 120),
+        body: clip(t.body, 320),
+      }));
+    }
+    return out;
+  });
+
+  return {
+    ctaHeadline: clip(results.ctaHeadline, 160),
+    ctaBody: clip(results.ctaBody, 480),
+    sections: compact,
+  };
+}
+
 function sanitizeFreeText(input) {
   if (!input || typeof input !== "string") return "";
   return input
@@ -3195,6 +3304,7 @@ ${d.accommodationsWorking ? `PLAN EFFECTIVENESS: ${d.accommodationsWorking}` : "
 ${d.schoolFollowsPlan ? `IMPLEMENTATION: ${d.schoolFollowsPlan}` : ""}
 ${d.newConcerns ? `NEW CONCERNS: ${d.newConcerns}` : ""}
 ${d.lastReview ? `LAST REVIEW: ${d.lastReview}` : ""}
+${d.planHistory ? `PLAN IN PLACE FOR: ${d.planHistory}` : ""}
 WHAT PARENT NEEDS MOST: ${d.feltNeed}
 `.trim();
 

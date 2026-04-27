@@ -237,6 +237,7 @@ function buildReeseNotification(branch, data, email, profileHTML) {
   }
   if (branch === "implementing") {
     branchSpecificRows.push(row("Plan type", data.planType));
+    branchSpecificRows.push(row("Plan in place for", data.planHistory));
     branchSpecificRows.push(row("Current accommodations", list(data.currentAccommodations)));
     branchSpecificRows.push(row("Plan effectiveness", data.accommodationsWorking));
     branchSpecificRows.push(row("School follows plan", data.schoolFollowsPlan));
