@@ -971,10 +971,33 @@ export default function PathED() {
           branch,
           results,       // full AI-generated profile, used to build the HTML email
           website: hp,   // honeypot, real users leave this empty
+          // Full sanitized wizard data so the Reese notification can show
+          // every answer the parent gave, not a summary.
           data: {
-            feltNeed:    data.feltNeed    || "",
-            grade:       data.grade       || "",
+            grade: data.grade || "",
+            planType: data.planType || "",
+            diagnoses: Array.isArray(data.diagnoses) ? data.diagnoses : [],
+            diagnosisOther: data.diagnosisOther || "",
+            struggleCategories: Array.isArray(data.struggleCategories) ? data.struggleCategories : [],
+            struggleSpecifics: data.struggleSpecifics || {},
+            struggleOther: data.struggleOther || "",
             schoolStance: data.schoolStance || "",
+            monitoringDuration: data.monitoringDuration || "",
+            documented: data.documented || "",
+            history: data.history || "",
+            privateEval: data.privateEval || "",
+            schoolRelationship: data.schoolRelationship || "",
+            familiarity: data.familiarity || "",
+            feltNeed: data.feltNeed || "",
+            teacherFeedback: data.teacherFeedback || "",
+            triedAlready: Array.isArray(data.triedAlready) ? data.triedAlready : [],
+            processStage: data.processStage || "",
+            processConcerns: Array.isArray(data.processConcerns) ? data.processConcerns : [],
+            currentAccommodations: Array.isArray(data.currentAccommodations) ? data.currentAccommodations : [],
+            accommodationsWorking: data.accommodationsWorking || "",
+            newConcerns: data.newConcerns || "",
+            lastReview: data.lastReview || "",
+            schoolFollowsPlan: data.schoolFollowsPlan || "",
           },
         }),
       });

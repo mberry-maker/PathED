@@ -187,32 +187,111 @@ function buildProfileEmail(results, branch, data) {
 </html>`;
 }
 
-function buildReeseNotification(branch, data, email) {
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function row(label, value) {
+  const display = value == null || value === "" ? "(not answered)" : value;
+  const isMuted = value == null || value === "";
+  return `<tr>
+    <td style="padding:10px 14px 10px 0;border-bottom:1px solid #e5e2dc;font-size:12px;color:#6b7588;width:160px;vertical-align:top;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">${escapeHtml(label)}</td>
+    <td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13.5px;color:${isMuted ? "#9099a8" : "#0f1419"};font-weight:${isMuted ? 400 : 500};line-height:1.55;">${escapeHtml(display)}</td>
+  </tr>`;
+}
+
+function buildReeseNotification(branch, data, email, profileHTML) {
   const branchLabels = {
     exploring: "Exploring · no plan yet, real concerns",
     watching: "Watching · things slipping, not in crisis",
     inProcess: "In Process · currently in evaluation",
     implementing: "Implementing · has 504 or IEP",
   };
+
+  const struggleSummary = (() => {
+    const map = data.struggleSpecifics || {};
+    const lines = Object.entries(map)
+      .filter(([, items]) => Array.isArray(items) && items.length)
+      .map(([cat, items]) => `${cat}: ${items.join(", ")}`);
+    return lines.join(" • ");
+  })();
+
+  const list = (arr) =>
+    Array.isArray(arr) && arr.length ? arr.join(", ") : "";
+
+  // Branch-aware fields, only show what was actually asked.
+  const branchSpecificRows = [];
+  if (branch === "watching") {
+    branchSpecificRows.push(row("Teacher feedback", data.teacherFeedback));
+    branchSpecificRows.push(row("Already tried", list(data.triedAlready)));
+  }
+  if (branch === "inProcess") {
+    branchSpecificRows.push(row("Process stage", data.processStage));
+    branchSpecificRows.push(row("Process concerns", list(data.processConcerns)));
+  }
+  if (branch === "implementing") {
+    branchSpecificRows.push(row("Plan type", data.planType));
+    branchSpecificRows.push(row("Current accommodations", list(data.currentAccommodations)));
+    branchSpecificRows.push(row("Plan effectiveness", data.accommodationsWorking));
+    branchSpecificRows.push(row("School follows plan", data.schoolFollowsPlan));
+    branchSpecificRows.push(row("Last review", data.lastReview));
+    branchSpecificRows.push(row("New concerns", data.newConcerns));
+  }
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><title>PathED Lead</title></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafaf8;margin:0;padding:24px;">
-<div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e2dc;border-radius:8px;padding:28px;">
-  <div style="background:#0a2540;border-radius:6px;padding:18px 20px;margin-bottom:20px;">
-    <p style="color:#4ba8a4;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 4px;font-weight:600;">PathED Lead · Share Requested</p>
-    <h2 style="color:#fff;font-size:20px;margin:0;">New profile ready to review</h2>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafaf8;margin:0;padding:24px;color:#0f1419;">
+<div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e5e2dc;border-radius:10px;padding:32px;">
+
+  <div style="background:linear-gradient(135deg,#0a2540 0%,#127572 130%);border-radius:8px;padding:22px 24px;margin-bottom:24px;">
+    <p style="color:#4ba8a4;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin:0 0 6px;font-weight:700;">PathED Lead · Share Requested</p>
+    <h2 style="color:#fff;font-size:22px;margin:0 0 4px;font-weight:700;letter-spacing:-0.01em;">${escapeHtml(email)}</h2>
+    <p style="color:rgba(255,255,255,0.7);font-size:12.5px;margin:0;">${escapeHtml(branchLabels[branch] || branch)}</p>
   </div>
-  <table style="width:100%;border-collapse:collapse;">
-    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#6b7588;width:140px;">Email</td><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#0f1419;font-weight:500;">${email}</td></tr>
-    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#6b7588;">Track</td><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#0f1419;">${branchLabels[branch] || branch}</td></tr>
-    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#6b7588;">Grade</td><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#0f1419;">${data.grade || "—"}</td></tr>
-    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#6b7588;">School stance</td><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#0f1419;">${data.schoolStance || "—"}</td></tr>
-    <tr><td style="padding:10px 0;font-size:13px;color:#6b7588;">What they need</td><td style="padding:10px 0;font-size:13px;color:#0f1419;">${data.feltNeed || "—"}</td></tr>
+
+  <p style="font-size:13px;color:#6b7588;line-height:1.6;margin:0 0 20px;">
+    The parent below opted to share their PathED profile with you. The full
+    parent-facing email is embedded at the bottom of this message. Reply
+    directly to <strong style="color:#0f1419;">${escapeHtml(email)}</strong>
+    to follow up.
+  </p>
+
+  <h3 style="font-size:13px;font-weight:700;color:#0a2540;margin:0 0 12px;text-transform:uppercase;letter-spacing:0.1em;">Their responses</h3>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
+    ${row("Email", email)}
+    ${row("Track", branchLabels[branch] || branch)}
+    ${row("Grade", data.grade)}
+    ${row("What they need", data.feltNeed)}
+    ${row("Familiarity", data.familiarity)}
+    ${row("Diagnoses", list(data.diagnoses) + (data.diagnosisOther ? ` (other: ${data.diagnosisOther})` : ""))}
+    ${row("Struggle areas", list(data.struggleCategories))}
+    ${row("Specifics", struggleSummary)}
+    ${row("Struggle note", data.struggleOther)}
+    ${row("School stance", data.schoolStance)}
+    ${row("Monitoring duration", data.monitoringDuration)}
+    ${row("Documentation", data.documented)}
+    ${row("History length", data.history)}
+    ${row("Outside evaluation", data.privateEval)}
+    ${row("School relationship", data.schoolRelationship)}
+    ${branchSpecificRows.join("\n")}
   </table>
-  <div style="margin-top:20px;">
-    <a href="https://www.accommodatedpathways.com/book-online" style="display:inline-block;background:#127572;color:#fff;padding:12px 22px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:600;">View in MailerLite →</a>
+
+  <h3 style="font-size:13px;font-weight:700;color:#0a2540;margin:32px 0 12px;text-transform:uppercase;letter-spacing:0.1em;border-top:1px solid #e5e2dc;padding-top:24px;">The profile they received</h3>
+  <p style="font-size:12px;color:#6b7588;line-height:1.6;margin:0 0 16px;font-style:italic;">
+    A copy of the email sent to the parent is below. It is the same content
+    they have, formatted for review.
+  </p>
+  <div style="border:1px solid #e5e2dc;border-radius:8px;padding:6px;background:#fafaf8;">
+    ${profileHTML || '<p style="padding:18px;font-size:13px;color:#9099a8;margin:0;">The parent did not opt in to receive the email, so no copy is embedded here.</p>'}
   </div>
+
 </div>
 </body>
 </html>`;
@@ -241,7 +320,7 @@ function htmlToText(html) {
     .trim();
 }
 
-async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways" }) {
+async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways", replyTo }) {
   const token =
     process.env.MAILERSEND_API_KEY ||
     process.env.MAILERSEND_API_TOKEN ||
@@ -257,6 +336,9 @@ async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways"
     html,
     text: htmlToText(html),
   };
+  if (replyTo) {
+    payload.reply_to = { email: replyTo };
+  }
 
   const res = await fetch("https://api.mailersend.com/v1/email", {
     method: "POST",
@@ -396,12 +478,18 @@ export default async function handler(req, res) {
     }
   }
 
+  // Build the parent-facing profile HTML once. The same body is used for the
+  // parent's email and embedded inside Reese's notification so she can review
+  // exactly what the parent received.
+  const profileHTML = safeResults
+    ? buildProfileEmail(safeResults, branch, profileData || {})
+    : null;
+
   // ── SEND PROFILE EMAIL TO PARENT ──────────────────────────────────────────
   let profileEmailStatus = "skipped";
   let profileEmailError = null;
-  if (safeResults && emailOptIn) {
+  if (profileHTML && emailOptIn) {
     try {
-      const profileHTML = buildProfileEmail(safeResults, branch, profileData || {});
       await sendEmail({
         to: cleanEmail,
         subject: "Your PathED Profile from AccommodatED Pathways",
@@ -421,14 +509,23 @@ export default async function handler(req, res) {
   }
 
   // ── NOTIFY REESE ──────────────────────────────────────────────────────────
+  // Always carry the profile HTML and the full responses, regardless of
+  // whether the parent opted in to receive their own copy. Reply-To is set so
+  // hitting reply in Gmail goes straight to the parent.
   let notifyStatus = "skipped";
   if (shareWithReese) {
     try {
-      const notifyHTML = buildReeseNotification(branch, profileData || {}, cleanEmail);
+      const notifyHTML = buildReeseNotification(
+        branch,
+        profileData || {},
+        cleanEmail,
+        profileHTML
+      );
       await sendEmail({
         to: "contact@accommodatedpathways.com",
         subject: `PathED Lead · ${profileData?.grade || "Unknown grade"} · ${profileData?.feltNeed || ""}`,
         html: notifyHTML,
+        replyTo: cleanEmail,
       });
       notifyStatus = "sent";
     } catch (e) {
