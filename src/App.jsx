@@ -1112,208 +1112,23 @@ export default function PathED() {
 }
 
 // ============ LOGO ============
-// LogoMark prefers a real asset under public/, falling back to the inline
-// SVG approximation below. The probe runs once per session via the
-// LOGO_PROBE module-level cache so we never thrash the network. Drop a
-// file at any of the candidate paths and the site picks it up.
-const LOGO_PROBE = { state: "idle", src: null }; // "idle" | "checking" | "found" | "missing"
-const LOGO_CANDIDATES = ["/THEE_logo__2_.png", "/logo.png", "/logo.svg"];
-
-function useResolvedLogo() {
-  const [src, setSrc] = useState(LOGO_PROBE.state === "found" ? LOGO_PROBE.src : null);
-  useEffect(() => {
-    if (LOGO_PROBE.state === "found") { setSrc(LOGO_PROBE.src); return; }
-    if (LOGO_PROBE.state === "missing" || LOGO_PROBE.state === "checking") return;
-    LOGO_PROBE.state = "checking";
-    let cancelled = false;
-    (async () => {
-      for (const url of LOGO_CANDIDATES) {
-        try {
-          const r = await fetch(url, { method: "HEAD" });
-          if (r.ok && !cancelled) {
-            LOGO_PROBE.state = "found";
-            LOGO_PROBE.src = url;
-            setSrc(url);
-            return;
-          }
-        } catch (_) { /* network error, try next */ }
-      }
-      if (!cancelled) {
-        LOGO_PROBE.state = "missing";
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-  return src;
-}
-
-function LogoMark({ size = 28, ariaLabel }) {
-  const resolved = useResolvedLogo();
-  if (resolved) {
-    return (
-      <img
-        src={resolved}
-        alt={ariaLabel || "AccommodatED Pathways"}
-        style={{
-          display: "block",
-          flexShrink: 0,
-          height: size,
-          width: "auto",
-          maxWidth: size * 4, // safety cap so a wide lockup PNG cannot blow the layout
-          objectFit: "contain",
-        }}
-      />
-    );
-  }
-  return <LogoMarkSVG size={size} ariaLabel={ariaLabel} />;
-}
-
-function LogoMarkSVG({ size = 28, ariaLabel }) {
+// Single source of truth for the brand logo: a plain <img> pointing at
+// /THEE_logo__2_.png. If the file is missing the onError handler hides the
+// element rather than falling back to anything. There are no SVG or text
+// alternatives elsewhere in the app.
+function Logo({ height = 32, alt = "AccommodatED Pathways logo", style }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 80 80"
-      role={ariaLabel ? "img" : "presentation"}
-      aria-label={ariaLabel}
-      aria-hidden={ariaLabel ? undefined : "true"}
-      style={{ display: "block", flexShrink: 0 }}
-    >
-      {/* Crown chevrons. Outer pair in teal, inner peak in lighter teal. */}
-      <path
-        d="M6 38 L20 14 L34 32"
-        stroke="#127572"
-        strokeWidth="5"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M74 38 L60 14 L46 32"
-        stroke="#127572"
-        strokeWidth="5"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M26 30 L40 6 L54 30"
-        stroke="#1d918d"
-        strokeWidth="5"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Person figure under the central peak */}
-      <circle cx="40" cy="28" r="4.5" fill="#0a2540" />
-      {/* Three rising arrows */}
-      <g
-        stroke="#127572"
-        strokeWidth="3.5"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M10 46 C 24 38, 44 40, 60 46" />
-        <path d="M58 42 L62 46 L58 50" />
-      </g>
-      <g
-        stroke="#0a2540"
-        strokeWidth="3.8"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M10 56 C 24 48, 46 50, 62 56" />
-        <path d="M60 52 L64 56 L60 60" />
-      </g>
-      <g
-        stroke="#127572"
-        strokeWidth="3.5"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M10 66 C 24 58, 48 60, 64 66" />
-        <path d="M62 62 L66 66 L62 70" />
-      </g>
-    </svg>
-  );
-}
-
-function LogoLockup({ size = 64, align = "center", onLight = false, showTagline = true }) {
-  const wordmarkColor = onLight ? "#fff" : "#0a2540";
-  const taglineColor = onLight ? "rgba(255,255,255,0.72)" : "#127572";
-  // The real lockup PNG already bakes in the wordmark and tagline. When a
-  // real asset resolves, render it bigger and skip the text below to avoid
-  // doubling the wordmark. The SVG fallback is just the graphic, so the text
-  // wordmark + tagline stay on for that case.
-  const resolved = useResolvedLogo();
-  if (resolved) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: align === "center" ? "center" : "flex-start",
-        }}
-      >
-        <img
-          src={resolved}
-          alt="AccommodatED Pathways. Progress, Made Personal."
-          style={{
-            display: "block",
-            height: Math.round(size * 1.6),
-            width: "auto",
-            maxWidth: "100%",
-            objectFit: "contain",
-          }}
-        />
-      </div>
-    );
-  }
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: align === "center" ? "center" : "flex-start",
-        gap: 10,
-      }}
-    >
-      <LogoMarkSVG size={size} ariaLabel="AccommodatED Pathways" />
-      <div style={{ textAlign: align }}>
-        <div
-          style={{
-            fontSize: Math.round(size * 0.34),
-            fontWeight: 700,
-            color: wordmarkColor,
-            letterSpacing: "-0.01em",
-            lineHeight: 1.1,
-          }}
-        >
-          Accommodat<span style={{ color: onLight ? "#fff" : "#127572" }}>ED</span> Pathways
-        </div>
-        {showTagline && (
-          <div
-            style={{
-              marginTop: 4,
-              fontSize: Math.round(size * 0.18),
-              fontWeight: 500,
-              color: taglineColor,
-              letterSpacing: "0.02em",
-            }}
-          >
-            Progress, Made Personal
-          </div>
-        )}
-      </div>
-    </div>
+    <img
+      src="/THEE_logo__2_.png"
+      alt={alt}
+      onError={(e) => { e.target.style.display = 'none'; }}
+      style={{ height, width: "auto", display: "block", flexShrink: 0, objectFit: "contain", ...(style || {}) }}
+    />
   );
 }
 
 // ============ TOP BAR ============
 function TopBar({ screen, step, totalSteps, onLogo, branch }) {
-  const resolvedLogo = useResolvedLogo();
   return (
     <div
       className="topbar"
@@ -1344,34 +1159,17 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
           aria-label="AccommodatED Pathways. Return to start."
           style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}
         >
-          <LogoMark size={resolvedLogo ? 32 : 32} />
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.05 }}>
-            <span
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: C.navy,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Path<span style={{ color: C.teal }}>ED</span>
-            </span>
-            {!resolvedLogo && (
-            <span
-              className="mono tb-sub"
-              style={{
-                marginTop: 2,
-                fontSize: 9.5,
-                color: C.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.14em",
-                fontWeight: 600,
-              }}
-            >
-              AccommodatED Pathways
-            </span>
-            )}
-          </div>
+          <Logo height={32} />
+          <span
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: C.navy,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Path<span style={{ color: C.teal }}>ED</span>
+          </span>
         </div>
         {screen === "wizard" && (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1426,7 +1224,7 @@ function Landing({ onPick }) {
   return (
     <div className="fade-in" style={{ paddingTop: 8 }}>
       <div style={{ marginBottom: 36, display: "flex", justifyContent: "flex-start" }}>
-        <LogoLockup size={80} align="left" />
+        <Logo height={128} />
       </div>
       <div
         className="mono"
@@ -2363,7 +2161,7 @@ function Results({
     <div className="fade-in" style={{ paddingTop: 8 }}>
       {/* Print-only lockup at the very top of the page */}
       <div className="print-only" style={{ marginBottom: 18 }}>
-        <LogoLockup size={72} align="left" showTagline={true} />
+        <Logo height={96} />
       </div>
 
       {/* Header */}
@@ -2393,7 +2191,7 @@ function Results({
             display: "flex",
           }}
         >
-          <LogoMark size={40} />
+          <Logo height={40} />
         </div>
         <div
           className="mono"
