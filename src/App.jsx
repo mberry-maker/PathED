@@ -33,9 +33,12 @@ const FontStyles = () => (
     @media print {
       @page { margin: 0.5in; }
       html, body { background: #fff !important; }
-      .no-print, .topbar, .mobile-cta-bar, .email-capture, .footer-actions { display: none !important; }
+      /* Hide everything that is not part of the printed profile or offer page */
+      .no-print, .topbar, .mobile-cta-bar, .email-capture, .footer-actions,
+      .stagger-7.email-capture, [class*="email-capture"] { display: none !important; }
       .print-only { display: block !important; }
       .container-wrap { padding: 0 !important; max-width: 100% !important; }
+      .results-logo { height: 64px !important; margin-bottom: 14px !important; }
       .results-header {
         background: #fff !important;
         color: #0a2540 !important;
@@ -47,13 +50,19 @@ const FontStyles = () => (
       }
       .results-header .gen-date { color: #0a2540 !important; }
       .results-header .mono { color: #127572 !important; }
+      /* Force the offers block onto its own printed page so the parent
+         gets one page of profile / responses and a clean second page of
+         next-steps and pricing. */
       .cta-block {
+        page-break-before: always;
+        break-before: page;
         background: #fff !important;
         color: #0a2540 !important;
         border: 1.5px solid #0a2540 !important;
         border-radius: 8px !important;
         box-shadow: none !important;
         padding: 24px 26px !important;
+        margin-top: 0 !important;
       }
       .cta-block .cta-headline { color: #0a2540 !important; }
       .cta-block p { color: #27303f !important; opacity: 1 !important; }
@@ -2151,6 +2160,14 @@ function Results({
 
   return (
     <div className="fade-in" style={{ paddingTop: 8 }}>
+      {/* Logo, visible on screen and on the printed page */}
+      <img
+        src="/logo_no_writing.svg"
+        alt="AccommodatED Pathways"
+        className="results-logo"
+        style={{ height: 56, width: "auto", display: "block", marginBottom: 18 }}
+        onError={(e) => { e.target.style.display = 'none'; }}
+      />
       {/* Header */}
       <div
         className="stagger-1 results-header"
