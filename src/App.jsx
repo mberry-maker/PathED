@@ -1111,22 +1111,6 @@ export default function PathED() {
   );
 }
 
-// ============ LOGO ============
-// Single source of truth for the brand logo: a plain <img> pointing at
-// /THEE_logo__2_.png. If the file is missing the onError handler hides the
-// element rather than falling back to anything. There are no SVG or text
-// alternatives elsewhere in the app.
-function Logo({ height = 32, alt = "AccommodatED Pathways logo", style }) {
-  return (
-    <img
-      src="/THEE_logo__2_.png"
-      alt={alt}
-      onError={(e) => { e.target.style.display = 'none'; }}
-      style={{ height, width: "auto", display: "block", flexShrink: 0, objectFit: "contain", ...(style || {}) }}
-    />
-  );
-}
-
 // ============ TOP BAR ============
 function TopBar({ screen, step, totalSteps, onLogo, branch }) {
   return (
@@ -1156,10 +1140,15 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
         <div
           onClick={onLogo}
           role="button"
-          aria-label="AccommodatED Pathways. Return to start."
-          style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}
+          aria-label="PathED by AccommodatED. Return to start."
+          style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
         >
-          <Logo height={32} />
+          <img
+            src="/logo_no_writing.svg"
+            alt=""
+            style={{ height: 28, width: "auto" }}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
           <span
             style={{
               fontSize: 18,
@@ -1168,7 +1157,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
               letterSpacing: "-0.02em",
             }}
           >
-            Path<span style={{ color: C.teal }}>ED</span>
+            Path<span style={{ color: C.teal }}>ED</span> by AccommodatED
           </span>
         </div>
         {screen === "wizard" && (
@@ -1222,10 +1211,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
 // ============ LANDING ============
 function Landing({ onPick }) {
   return (
-    <div className="fade-in" style={{ paddingTop: 8 }}>
-      <div style={{ marginBottom: 36, display: "flex", justifyContent: "flex-start" }}>
-        <Logo height={128} />
-      </div>
+    <div className="fade-in" style={{ paddingTop: 32 }}>
       <div
         className="mono"
         style={{
@@ -2159,11 +2145,6 @@ function Results({
 
   return (
     <div className="fade-in" style={{ paddingTop: 8 }}>
-      {/* Print-only lockup at the very top of the page */}
-      <div className="print-only" style={{ marginBottom: 18 }}>
-        <Logo height={96} />
-      </div>
-
       {/* Header */}
       <div
         className="stagger-1 results-header"
@@ -2179,21 +2160,6 @@ function Results({
         }}
       >
         <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: 18,
-            right: 22,
-            opacity: 0.85,
-            background: "rgba(255,255,255,0.16)",
-            borderRadius: 14,
-            padding: 8,
-            display: "flex",
-          }}
-        >
-          <Logo height={40} />
-        </div>
-        <div
           className="mono"
           style={{
             fontSize: 11,
@@ -2202,7 +2168,6 @@ function Results({
             textTransform: "uppercase",
             fontWeight: 600,
             marginBottom: 12,
-            paddingRight: 64,
           }}
         >
           PathED Profile · {BRANCHES[branch].short} Track
