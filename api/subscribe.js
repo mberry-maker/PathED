@@ -11,6 +11,13 @@ const ALLOWED_ORIGINS = [
 ];
 
 // ─── EMAIL BUILDER ────────────────────────────────────────────────────────────
+// Every value interpolated into the email HTML must pass through safe() (or
+// be guarded with a conditional) so a missing field renders as an empty
+// string, never the literal word "undefined".
+function safe(v) {
+  return typeof v === "string" && v.length > 0 ? v : "";
+}
+
 function buildProfileEmail(results, branch, data) {
   const today = new Date().toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
@@ -25,58 +32,104 @@ function buildProfileEmail(results, branch, data) {
 
   const sectionHTML = (results.sections || []).map((section, i) => {
     const num = String(i + 1).padStart(2, "0");
+    const safeTitle = safe(section.title);
 
     let bodyHTML = "";
 
     if (section.type === "narrative") {
-      bodyHTML = `<p style="font-size:16px;line-height:1.75;color:#27303f;margin:0;">${section.body}</p>`;
+      const body = safe(section.body);
+      bodyHTML = body
+        ? `<p style="font-size:16px;line-height:1.75;color:#27303f;margin:0;">${body}</p>`
+        : "";
     }
 
     if (section.type === "headline_body") {
+      const headline = safe(section.headline);
+      const body = safe(section.body);
+      const callout = safe(section.callout);
       bodyHTML = `
-        <p style="font-size:18px;font-weight:600;color:#0a2540;margin:0 0 14px;">${section.headline}</p>
-        <p style="font-size:14px;line-height:1.75;color:#27303f;margin:0 0 14px;">${section.body}</p>
-        ${section.callout ? `<div style="padding:14px 18px;background:#e6f1f0;border-left:3px solid #127572;font-size:14px;line-height:1.7;color:#27303f;border-radius:0 4px 4px 0;">${section.callout}</div>` : ""}
+        ${headline ? `<p style="font-size:18px;font-weight:600;color:#0a2540;margin:0 0 14px;">${headline}</p>` : ""}
+        ${body ? `<p style="font-size:14px;line-height:1.75;color:#27303f;margin:0 0 14px;">${body}</p>` : ""}
+        ${callout ? `<div style="padding:14px 18px;background:#e6f1f0;border-left:3px solid #127572;font-size:14px;line-height:1.7;color:#27303f;border-radius:0 4px 4px 0;">${callout}</div>` : ""}
       `;
     }
 
     if (section.type === "accommodations") {
-      bodyHTML = (section.items || []).map(a => `
-        <div style="padding:18px 20px;background:#fff;border:1px solid #e5e2dc;border-radius:5px;margin-bottom:14px;">
-          <p style="font-size:16px;font-weight:700;color:#0a2540;margin:0 0 12px;">${a.name}${a.tag ? `<span style="margin-left:10px;font-size:10px;font-weight:600;background:${a.tag === "STRENGTHEN" ? "#fef3c7" : "#e6f1f0"};color:${a.tag === "STRENGTHEN" ? "#92400e" : "#127572"};padding:2px 7px;border-radius:2px;text-transform:uppercase;letter-spacing:0.08em;vertical-align:middle;">${a.tag}</span>` : ""}</p>
-          <p style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:#127572;font-weight:600;margin:0 0 3px;">Why it helps</p>
-          <p style="font-size:13px;line-height:1.6;color:#27303f;margin:0 0 10px;">${a.whyItHelps}</p>
-          <p style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:#127572;font-weight:600;margin:0 0 3px;">How to ask for it</p>
-          <p style="font-size:13px;line-height:1.6;color:#27303f;font-style:italic;margin:0 0 10px;">${a.howToAskFor}</p>
-          <p style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:#127572;font-weight:600;margin:0 0 3px;">How families strengthen it</p>
-          <p style="font-size:13px;line-height:1.6;color:#27303f;margin:0;">${a.strengthenIt}</p>
-        </div>
-      `).join("");
+      // Skip an entire card if it has no name. Within a kept card, drop
+      // individual rows whose value is missing instead of writing the word
+      // "undefined" into the email.
+      bodyHTML = (section.items || [])
+        .filter((a) => a && safe(a.name))
+        .map((a) => {
+          const name = safe(a.name);
+          const tag = safe(a.tag);
+          const whyItHelps = safe(a.whyItHelps);
+          const howToAskFor = safe(a.howToAskFor);
+          const strengthenIt = safe(a.strengthenIt);
+          const tagHTML = tag
+            ? `<span style="margin-left:10px;font-size:10px;font-weight:600;background:${tag === "STRENGTHEN" ? "#fef3c7" : "#e6f1f0"};color:${tag === "STRENGTHEN" ? "#92400e" : "#127572"};padding:2px 7px;border-radius:2px;text-transform:uppercase;letter-spacing:0.08em;vertical-align:middle;">${tag}</span>`
+            : "";
+          return `
+            <div style="padding:18px 20px;background:#fff;border:1px solid #e5e2dc;border-radius:5px;margin-bottom:14px;">
+              <p style="font-size:16px;font-weight:700;color:#0a2540;margin:0 0 12px;">${name}${tagHTML}</p>
+              ${whyItHelps ? `
+                <p style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:#127572;font-weight:600;margin:0 0 3px;">Why it helps</p>
+                <p style="font-size:13px;line-height:1.6;color:#27303f;margin:0 0 10px;">${whyItHelps}</p>
+              ` : ""}
+              ${howToAskFor ? `
+                <p style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:#127572;font-weight:600;margin:0 0 3px;">How to ask for it</p>
+                <p style="font-size:13px;line-height:1.6;color:#27303f;font-style:italic;margin:0 0 10px;">${howToAskFor}</p>
+              ` : ""}
+              ${strengthenIt ? `
+                <p style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:#127572;font-weight:600;margin:0 0 3px;">How families strengthen it</p>
+                <p style="font-size:13px;line-height:1.6;color:#27303f;margin:0;">${strengthenIt}</p>
+              ` : ""}
+            </div>
+          `;
+        })
+        .join("");
     }
 
     if (section.type === "questions") {
-      bodyHTML = (section.items || []).map((q, qi) => `
-        <div style="display:flex;gap:14px;padding-bottom:12px;border-bottom:${qi < section.items.length - 1 ? "1px solid #e5e2dc" : "none"};margin-bottom:${qi < section.items.length - 1 ? "12px" : "0"};">
-          <span style="font-size:18px;color:#127572;font-weight:600;flex-shrink:0;width:28px;">${String(qi + 1).padStart(2, "0")}</span>
-          <p style="font-size:14px;line-height:1.6;color:#27303f;margin:0;">${q}</p>
-        </div>
-      `).join("");
+      // Drop empty / missing questions before assigning numbers so the
+      // visible numbering is contiguous.
+      const questions = (section.items || [])
+        .map((q) => safe(q))
+        .filter(Boolean);
+      bodyHTML = questions
+        .map((q, qi) => `
+          <div style="display:flex;gap:14px;padding-bottom:12px;border-bottom:${qi < questions.length - 1 ? "1px solid #e5e2dc" : "none"};margin-bottom:${qi < questions.length - 1 ? "12px" : "0"};">
+            <span style="font-size:18px;color:#127572;font-weight:600;flex-shrink:0;width:28px;">${String(qi + 1).padStart(2, "0")}</span>
+            <p style="font-size:14px;line-height:1.6;color:#27303f;margin:0;">${q}</p>
+          </div>
+        `)
+        .join("");
     }
 
     if (section.type === "list_with_actions") {
-      bodyHTML = (section.items || []).map(t => `
-        <div style="padding-left:14px;border-left:2px solid #127572;margin-bottom:16px;">
-          <p style="font-size:15px;font-weight:600;color:#0a2540;margin:0 0 5px;">${t.title}</p>
-          <p style="font-size:13px;line-height:1.65;color:#27303f;margin:0;">${t.body}</p>
-        </div>
-      `).join("");
+      // Per spec: only render the item if both title and body are truthy
+      // strings. A missing title or body drops the entire item rather than
+      // letting "undefined" reach the email.
+      bodyHTML = (section.items || [])
+        .filter((t) => t && safe(t.title) && safe(t.body))
+        .map((t) => `
+          <div style="padding-left:14px;border-left:2px solid #127572;margin-bottom:16px;">
+            <p style="font-size:15px;font-weight:600;color:#0a2540;margin:0 0 5px;">${safe(t.title)}</p>
+            <p style="font-size:13px;line-height:1.65;color:#27303f;margin:0;">${safe(t.body)}</p>
+          </div>
+        `)
+        .join("");
     }
+
+    // If a section has no rendered body and no title, drop the whole block
+    // rather than emitting an empty card with just a number.
+    if (!bodyHTML.trim() && !safeTitle) return "";
 
     return `
       <div style="margin-bottom:36px;">
         <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px;">
           <span style="font-size:12px;color:#127572;font-weight:600;font-family:monospace;">${num}</span>
-          <h3 style="font-size:20px;font-weight:700;color:#0a2540;margin:0;line-height:1.25;">${section.title}</h3>
+          <h3 style="font-size:20px;font-weight:700;color:#0a2540;margin:0;line-height:1.25;">${safeTitle}</h3>
         </div>
         ${bodyHTML}
       </div>
