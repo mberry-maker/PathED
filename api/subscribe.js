@@ -1,4 +1,15 @@
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
+
+// See api/generate.js for the why behind getRedis().
+let _redis = null;
+function getRedis() {
+  if (_redis) return _redis;
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return null;
+  }
+  _redis = Redis.fromEnv();
+  return _redis;
+}
 
 const RATE_LIMIT = 5;
 const RATE_WINDOW = 3600;
@@ -9,6 +20,53 @@ const ALLOWED_ORIGINS = [
   "https://pathed.accommodatedpathways.com",
   "https://tool.accommodatedpathways.com",
 ];
+
+// ─── TRUNCATION HELPER ───────────────────────────────────────────────────────
+// If the results payload exceeds 50KB, build a compact version that still has
+// the shape the email template expects: ctaHeadline, ctaBody, sections array.
+// Each section keeps its title and a clipped body / item list.
+function clip(value, n = 600) {
+  if (typeof value !== "string") return value;
+  return value.length > n ? value.slice(0, n - 1).trimEnd() + "..." : value;
+}
+
+function truncateResults(results) {
+  if (!results || typeof results !== "object") return null;
+  const sections = Array.isArray(results.sections) ? results.sections : [];
+  const compactSections = sections.slice(0, 6).map((s) => {
+    const out = { title: clip(s.title, 120), type: s.type };
+    if (s.type === "narrative") out.body = clip(s.body, 600);
+    if (s.type === "headline_body") {
+      out.headline = clip(s.headline, 200);
+      out.body = clip(s.body, 600);
+      if (s.callout) out.callout = clip(s.callout, 400);
+    }
+    if (s.type === "accommodations") {
+      out.items = (s.items || []).slice(0, 5).map((a) => ({
+        name: clip(a.name, 120),
+        tag: a.tag,
+        whyItHelps: clip(a.whyItHelps, 240),
+        howToAskFor: clip(a.howToAskFor, 240),
+        strengthenIt: clip(a.strengthenIt, 240),
+      }));
+    }
+    if (s.type === "questions") {
+      out.items = (s.items || []).slice(0, 5).map((q) => clip(q, 240));
+    }
+    if (s.type === "list_with_actions") {
+      out.items = (s.items || []).slice(0, 4).map((t) => ({
+        title: clip(t.title, 120),
+        body: clip(t.body, 320),
+      }));
+    }
+    return out;
+  });
+  return {
+    ctaHeadline: clip(results.ctaHeadline, 160),
+    ctaBody: clip(results.ctaBody, 480),
+    sections: compactSections,
+  };
+}
 
 // ─── EMAIL BUILDER ────────────────────────────────────────────────────────────
 // Every value interpolated into the email HTML must pass through safe() (or
@@ -150,7 +208,7 @@ function buildProfileEmail(results, branch, data) {
   <div style="background:linear-gradient(135deg,#0a2540 0%,#127572 100%);border-radius:8px;padding:32px;margin-bottom:24px;">
     <p style="font-size:11px;letter-spacing:0.2em;color:#4ba8a4;text-transform:uppercase;font-weight:600;margin:0 0 10px;">PathED Profile · ${branchLabels[branch] || "General"} Track</p>
     <h1 style="font-size:26px;font-weight:700;color:#fff;margin:0 0 6px;letter-spacing:-0.02em;">Generated ${today}</h1>
-    <p style="font-size:12px;color:rgba(255,255,255,0.6);margin:0;font-family:monospace;letter-spacing:0.05em;">AccommodatED Pathways · contact@accommodatedpathways.com</p>
+    <p style="font-size:12px;color:rgba(255,255,255,0.6);margin:0;font-family:monospace;letter-spacing:0.05em;">AccommodatED Pathways · Progress, Made Personal · contact@accommodatedpathways.com</p>
   </div>
 
   <!-- Safeguard -->
@@ -182,60 +240,182 @@ function buildProfileEmail(results, branch, data) {
 </html>`;
 }
 
-function buildReeseNotification(branch, data, email) {
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function row(label, value) {
+  const display = value == null || value === "" ? "(not answered)" : value;
+  const isMuted = value == null || value === "";
+  return `<tr>
+    <td style="padding:10px 14px 10px 0;border-bottom:1px solid #e5e2dc;font-size:12px;color:#6b7588;width:160px;vertical-align:top;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">${escapeHtml(label)}</td>
+    <td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13.5px;color:${isMuted ? "#9099a8" : "#0f1419"};font-weight:${isMuted ? 400 : 500};line-height:1.55;">${escapeHtml(display)}</td>
+  </tr>`;
+}
+
+function buildReeseNotification(branch, data, email, profileHTML) {
   const branchLabels = {
-    exploring: "Exploring — no plan yet, real concerns",
-    watching: "Watching — things slipping, not in crisis",
-    inProcess: "In Process — currently in evaluation",
-    implementing: "Implementing — has 504 or IEP",
+    exploring: "Exploring · no plan yet, real concerns",
+    watching: "Watching · things slipping, not in crisis",
+    inProcess: "In Process · currently in evaluation",
+    implementing: "Implementing · has 504 or IEP",
   };
+
+  const struggleSummary = (() => {
+    const map = data.struggleSpecifics || {};
+    const lines = Object.entries(map)
+      .filter(([, items]) => Array.isArray(items) && items.length)
+      .map(([cat, items]) => `${cat}: ${items.join(", ")}`);
+    return lines.join(" • ");
+  })();
+
+  const list = (arr) =>
+    Array.isArray(arr) && arr.length ? arr.join(", ") : "";
+
+  // Branch-aware fields, only show what was actually asked.
+  const branchSpecificRows = [];
+  if (branch === "watching") {
+    branchSpecificRows.push(row("Teacher feedback", data.teacherFeedback));
+    branchSpecificRows.push(row("Already tried", list(data.triedAlready)));
+  }
+  if (branch === "inProcess") {
+    branchSpecificRows.push(row("Process stage", data.processStage));
+    branchSpecificRows.push(row("Process concerns", list(data.processConcerns)));
+  }
+  if (branch === "implementing") {
+    branchSpecificRows.push(row("Plan type", data.planType));
+    branchSpecificRows.push(row("Plan in place for", data.planHistory));
+    branchSpecificRows.push(row("Current accommodations", list(data.currentAccommodations)));
+    branchSpecificRows.push(row("Plan effectiveness", data.accommodationsWorking));
+    branchSpecificRows.push(row("School follows plan", data.schoolFollowsPlan));
+    branchSpecificRows.push(row("Last review", data.lastReview));
+    branchSpecificRows.push(row("New concerns", data.newConcerns));
+  }
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><title>PathED Lead</title></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafaf8;margin:0;padding:24px;">
-<div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e2dc;border-radius:8px;padding:28px;">
-  <div style="background:#0a2540;border-radius:6px;padding:18px 20px;margin-bottom:20px;">
-    <p style="color:#4ba8a4;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 4px;font-weight:600;">PathED Lead — Share Requested</p>
-    <h2 style="color:#fff;font-size:20px;margin:0;">New profile ready to review</h2>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafaf8;margin:0;padding:24px;color:#0f1419;">
+<div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e5e2dc;border-radius:10px;padding:32px;">
+
+  <div style="background:linear-gradient(135deg,#0a2540 0%,#127572 130%);border-radius:8px;padding:22px 24px;margin-bottom:24px;">
+    <p style="color:#4ba8a4;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin:0 0 6px;font-weight:700;">PathED Lead · Share Requested</p>
+    <h2 style="color:#fff;font-size:22px;margin:0 0 4px;font-weight:700;letter-spacing:-0.01em;">${escapeHtml(email)}</h2>
+    <p style="color:rgba(255,255,255,0.7);font-size:12.5px;margin:0;">${escapeHtml(branchLabels[branch] || branch)}</p>
   </div>
-  <table style="width:100%;border-collapse:collapse;">
-    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#6b7588;width:140px;">Email</td><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#0f1419;font-weight:500;">${email}</td></tr>
-    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#6b7588;">Track</td><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#0f1419;">${branchLabels[branch] || branch}</td></tr>
-    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#6b7588;">Grade</td><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#0f1419;">${data.grade || "—"}</td></tr>
-    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#6b7588;">School stance</td><td style="padding:10px 0;border-bottom:1px solid #e5e2dc;font-size:13px;color:#0f1419;">${data.schoolStance || "—"}</td></tr>
-    <tr><td style="padding:10px 0;font-size:13px;color:#6b7588;">What they need</td><td style="padding:10px 0;font-size:13px;color:#0f1419;">${data.feltNeed || "—"}</td></tr>
+
+  <p style="font-size:13px;color:#6b7588;line-height:1.6;margin:0 0 20px;">
+    The parent below opted to share their PathED profile with you. The full
+    parent-facing email is embedded at the bottom of this message. Reply
+    directly to <strong style="color:#0f1419;">${escapeHtml(email)}</strong>
+    to follow up.
+  </p>
+
+  <h3 style="font-size:13px;font-weight:700;color:#0a2540;margin:0 0 12px;text-transform:uppercase;letter-spacing:0.1em;">Their responses</h3>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
+    ${row("Email", email)}
+    ${row("Track", branchLabels[branch] || branch)}
+    ${row("Grade", data.grade)}
+    ${row("What they need", data.feltNeed)}
+    ${row("Familiarity", data.familiarity)}
+    ${row("Diagnoses", list(data.diagnoses) + (data.diagnosisOther ? ` (other: ${data.diagnosisOther})` : ""))}
+    ${row("Struggle areas", list(data.struggleCategories))}
+    ${row("Specifics", struggleSummary)}
+    ${row("Struggle note", data.struggleOther)}
+    ${row("School stance", data.schoolStance)}
+    ${row("Monitoring duration", data.monitoringDuration)}
+    ${row("Documentation", data.documented)}
+    ${row("History length", data.history)}
+    ${row("Outside evaluation", data.privateEval)}
+    ${row("School relationship", data.schoolRelationship)}
+    ${branchSpecificRows.join("\n")}
   </table>
-  <div style="margin-top:20px;">
-    <a href="https://www.accommodatedpathways.com/book-online" style="display:inline-block;background:#127572;color:#fff;padding:12px 22px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:600;">View in MailerLite →</a>
+
+  <h3 style="font-size:13px;font-weight:700;color:#0a2540;margin:32px 0 12px;text-transform:uppercase;letter-spacing:0.1em;border-top:1px solid #e5e2dc;padding-top:24px;">The profile they received</h3>
+  <p style="font-size:12px;color:#6b7588;line-height:1.6;margin:0 0 16px;font-style:italic;">
+    A copy of the email sent to the parent is below. It is the same content
+    they have, formatted for review.
+  </p>
+  <div style="border:1px solid #e5e2dc;border-radius:8px;padding:6px;background:#fafaf8;">
+    ${profileHTML || '<p style="padding:18px;font-size:13px;color:#9099a8;margin:0;">The parent did not opt in to receive the email, so no copy is embedded here.</p>'}
   </div>
+
 </div>
 </body>
 </html>`;
 }
 
+// ─── HTML to plain text helper used for the textContent fallback ─────────────
+function htmlToText(html) {
+  return String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // ─── SEND VIA BREVO TRANSACTIONAL ─────────────────────────────────────────────
-// Brevo (formerly Sendinblue) endpoint. Header is api-key (not Bearer), the
-// payload uses "sender" instead of "from" and "htmlContent" instead of "html".
-async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways" }) {
+// Brevo (formerly Sendinblue) is the new transactional sender. Endpoint
+// https://api.brevo.com/v3/smtp/email, header api-key: <BREVO_API_KEY>, with
+// "sender" in place of "from" and "htmlContent" in place of "html".
+async function sendEmail({ to, subject, html, fromName = "AccommodatED Pathways", replyTo }) {
+  const token = process.env.BREVO_API_KEY;
+  if (!token) {
+    throw new Error("Missing BREVO_API_KEY");
+  }
+
+  const payload = {
+    sender: { email: "contact@accommodatedpathways.com", name: fromName },
+    to: [{ email: to, name: to.split("@")[0] }],
+    subject,
+    htmlContent: html,
+    textContent: htmlToText(html),
+  };
+  if (replyTo) {
+    payload.replyTo = { email: replyTo };
+  }
+
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Accept": "application/json",
-      "api-key": process.env.BREVO_API_KEY,
+      "api-key": token,
     },
-    body: JSON.stringify({
-      sender: { email: "contact@accommodatedpathways.com", name: fromName },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    }),
+    body: JSON.stringify(payload),
   });
+
   if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    throw new Error(`Brevo send failed: ${res.status} ${err.slice(0, 400)}`);
+    const errText = await res.text().catch(() => "");
+    // Log the full body so the failure mode is visible in Vercel function logs.
+    // Common cases: 401 (bad/missing key), 400 (validation error), 403
+    // (sender domain not authenticated), 429 (rate limit).
+    console.error(
+      `Brevo ${res.status} sending to ${to}: ${errText.slice(0, 800)}`
+    );
+    const err = new Error(`Brevo ${res.status}`);
+    err.status = res.status;
+    err.body = errText;
+    throw err;
   }
-  return res.json().catch(() => ({}));
+
+  // Brevo returns 201 Created with { messageId } on success.
+  return { ok: true, status: res.status };
 }
 
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
@@ -258,18 +438,35 @@ export default async function handler(req, res) {
   // Rate limiting
   const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || "unknown";
   try {
-    const rateKey = `pathed:sub:${ip}`;
-    const count = await kv.incr(rateKey);
-    if (count === 1) await kv.expire(rateKey, RATE_WINDOW);
-    if (count > RATE_LIMIT) {
-      return res.status(429).json({ error: "Too many requests. Please try again later." });
+    const redis = getRedis();
+    if (redis) {
+      const rateKey = `pathed:sub:${ip}`;
+      const count = await redis.incr(rateKey);
+      if (count === 1) await redis.expire(rateKey, RATE_WINDOW);
+      if (count > RATE_LIMIT) {
+        return res.status(429).json({ error: "Too many requests. Please try again later." });
+      }
     }
   } catch (e) {
     console.error("Rate limit error:", e?.message);
   }
 
   // Validate
-  const { email, emailOptIn, shareWithReese, branch, results, data: profileData } = req.body || {};
+  const {
+    email,
+    emailOptIn,
+    shareWithReese,
+    branch,
+    results,
+    data: profileData,
+    website, // honeypot, real users leave this empty
+  } = req.body || {};
+
+  // Honeypot, fail silently. Bots fill hidden fields, real users do not.
+  if (typeof website === "string" && website.trim().length > 0) {
+    console.warn("Honeypot tripped, dropping submission silently from", ip);
+    return res.status(200).json({ success: true });
+  }
 
   if (!email || typeof email !== "string" || !email.includes("@") || email.length > 254) {
     return res.status(400).json({ error: "Valid email required" });
@@ -277,10 +474,26 @@ export default async function handler(req, res) {
 
   const cleanEmail = email.toLowerCase().trim();
 
+  // Cap the inbound results object at 50KB. If a bigger object arrives (corrupt
+  // client, malicious payload, or model output that ballooned), build a compact
+  // summary that still contains the structural pieces the email template needs.
+  const RESULTS_LIMIT = 50 * 1024;
+  let safeResults = results;
+  try {
+    const size = Buffer.byteLength(JSON.stringify(results || {}), "utf8");
+    if (size > RESULTS_LIMIT) {
+      console.warn(`Results payload ${size} bytes exceeded ${RESULTS_LIMIT}, sending truncated summary`);
+      safeResults = truncateResults(results);
+    }
+  } catch (e) {
+    console.error("Results size check failed:", e?.message);
+    safeResults = null;
+  }
+
   // ── ADD TO BREVO LISTS ─────────────────────────────────────────────────────
-  // updateEnabled: true upserts the contact. listIds is an array of integers
-  // so parseInt the env vars defensively. Attribute keys are uppercase per
-  // Brevo convention.
+  // Brevo's contact endpoint upserts: pass updateEnabled: true and the same
+  // email is updated rather than rejected as duplicate. listIds is an array
+  // of integers so we parseInt the env-var values defensively.
   if (emailOptIn || shareWithReese) {
     const listIds = [];
     if (emailOptIn) {
@@ -322,34 +535,66 @@ export default async function handler(req, res) {
     }
   }
 
+  // Build the parent-facing profile HTML once. The same body is used for the
+  // parent's email and embedded inside Reese's notification so she can review
+  // exactly what the parent received.
+  const profileHTML = safeResults
+    ? buildProfileEmail(safeResults, branch, profileData || {})
+    : null;
+
   // ── SEND PROFILE EMAIL TO PARENT ──────────────────────────────────────────
-  if (results && emailOptIn) {
+  let profileEmailStatus = "skipped";
+  let profileEmailError = null;
+  if (profileHTML && emailOptIn) {
     try {
-      const profileHTML = buildProfileEmail(results, branch, profileData || {});
       await sendEmail({
         to: cleanEmail,
-        subject: "Your PathED Profile — AccommodatED Pathways",
+        subject: "Your PathED Profile from AccommodatED Pathways",
         html: profileHTML,
       });
+      profileEmailStatus = "sent";
     } catch (e) {
-      // Log but don't fail — subscriber is already added
+      profileEmailStatus = "failed";
+      // Surface a short, non-leaky reason to the client. Full body is in logs.
+      if (e?.status === 401) profileEmailError = "auth";
+      else if (e?.status === 403) profileEmailError = "domain_unverified";
+      else if (e?.status === 422) profileEmailError = "trial_recipient_blocked";
+      else if (e?.status === 429) profileEmailError = "rate_limited";
+      else profileEmailError = "send_failed";
       console.error("Profile email failed:", e?.message);
     }
   }
 
   // ── NOTIFY REESE ──────────────────────────────────────────────────────────
+  // Always carry the profile HTML and the full responses, regardless of
+  // whether the parent opted in to receive their own copy. Reply-To is set so
+  // hitting reply in Gmail goes straight to the parent.
+  let notifyStatus = "skipped";
   if (shareWithReese) {
     try {
-      const notifyHTML = buildReeseNotification(branch, profileData || {}, cleanEmail);
+      const notifyHTML = buildReeseNotification(
+        branch,
+        profileData || {},
+        cleanEmail,
+        profileHTML
+      );
       await sendEmail({
         to: "contact@accommodatedpathways.com",
-        subject: `PathED Lead — ${profileData?.grade || "Unknown grade"} · ${profileData?.feltNeed || ""}`,
+        subject: `PathED Lead · ${profileData?.grade || "Unknown grade"} · ${profileData?.feltNeed || ""}`,
         html: notifyHTML,
+        replyTo: cleanEmail,
       });
+      notifyStatus = "sent";
     } catch (e) {
+      notifyStatus = "failed";
       console.error("Reese notification failed:", e?.message);
     }
   }
 
-  return res.status(200).json({ success: true });
+  return res.status(200).json({
+    success: true,
+    profileEmail: profileEmailStatus,
+    profileEmailError,
+    reeseNotification: notifyStatus,
+  });
 }

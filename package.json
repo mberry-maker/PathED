@@ -2,6 +2,7 @@
   "name": "pathed",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,7 +11,7 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@vercel/kv": "^3.0.0"
+    "@upstash/redis": "^1.34.3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
