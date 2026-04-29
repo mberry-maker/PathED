@@ -1146,18 +1146,24 @@ function Landing({ onPick }) {
               <span
                 className="num"
                 style={{
-                  fontSize: 11,
-                  fontWeight: 600,
+                  fontSize: 10,
+                  fontWeight: 700,
                   color: C.teal,
                   flexShrink: 0,
-                  width: 36,
-                  letterSpacing: "0.05em",
+                  minWidth: 100,
+                  letterSpacing: "0.08em",
                   textTransform: "uppercase",
+                  background: C.tealSoft,
+                  padding: "3px 8px",
+                  borderRadius: 3,
+                  lineHeight: 1.5,
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {b.short}
               </span>
-              <span style={{ flex: 1 }}>{b.label}</span>
+              <span style={{ flex: 1, fontSize: 13 }}>{b.label}</span>
               <span style={{ color: C.mutedLight, fontSize: 16 }}>→</span>
             </button>
           ))}
