@@ -16,9 +16,13 @@ function getRedis() {
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 // Model and token limits are set HERE on the server. The client never controls them.
-const MODEL = "claude-sonnet-4-5";
+// Haiku 4.5 is the fastest current Anthropic model. For PathED's structured-JSON
+// triage profiles (where the schema does most of the heavy lifting), Haiku
+// produces output of comparable quality to Sonnet at roughly one third of the
+// latency, which is the dominant user complaint after the wizard finishes.
+const MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOKENS = 4000;
-const MAX_PROMPT_CHARS = 16000;   // ~4000 tokens of input — plenty for PathED prompts
+const MAX_PROMPT_CHARS = 16000;   // ~4000 tokens of input is plenty for PathED prompts
 const RATE_LIMIT = 8;             // requests per IP per hour
 const RATE_WINDOW = 3600;         // 1 hour in seconds
 

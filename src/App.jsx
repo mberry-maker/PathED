@@ -867,16 +867,16 @@ export default function PathED() {
     };
 
     // ============ ASSEMBLE BY BRANCH ============
+    // Trimmed steps so the triage feels short. Removed steps were either
+    // duplicative of another answer or low signal for the AI output.
     if (branch === "exploring") {
       return [
         grade,
         struggles,
-        schoolStance,
+        schoolStance,        // includes monitoringDuration follow-up, replaces standalone history
         documented,
-        history,
         privateEval,
         schoolRelationship,
-        familiarity,
         feltNeed,
       ];
     }
@@ -885,7 +885,6 @@ export default function PathED() {
         grade,
         strugglesLight,
         teacherFeedback,
-        triedAlready,
         schoolStanceLight,
         schoolRelationship,
         feltNeed,
@@ -899,7 +898,6 @@ export default function PathED() {
         diagnosesStep,
         processConcerns,
         schoolRelationship,
-        familiarity,
         feltNeed,
       ];
     }
@@ -907,13 +905,11 @@ export default function PathED() {
       return [
         grade,
         planType,
-        planHistory,
+        planHistory,         // replaces standalone lastReview
         diagnosesStep,
         currentAccs,
         accsWorking,
         followsPlan,
-        newConcerns,
-        lastReview,
         schoolRelationship,
         feltNeed,
       ];
