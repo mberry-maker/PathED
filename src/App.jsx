@@ -1060,7 +1060,7 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
             src="/logo_no_writing.svg"
             alt=""
             style={{ height: 28, width: "auto" }}
-            onError={(e) => { e.target.style.display = 'none'; }}
+            onError={hideOnError}
           />
           <span
             style={{
@@ -1129,7 +1129,7 @@ function Landing({ onPick }) {
         src="/logo_no_writing.svg"
         alt="AccommodatED Pathways"
         style={{ height: 72, width: "auto", display: "block", marginBottom: 24 }}
-        onError={(e) => { e.target.style.display = 'none'; }}
+        onError={hideOnError}
       />
       <div
         className="mono"
@@ -2070,7 +2070,7 @@ function Results({
         alt="AccommodatED Pathways"
         className="results-logo"
         style={{ height: 56, width: "auto", display: "block", marginBottom: 18 }}
-        onError={(e) => { e.target.style.display = 'none'; }}
+        onError={hideOnError}
       />
       {/* Header */}
       <div
@@ -2347,30 +2347,25 @@ function Results({
               We'll email you your full PathED Profile so you can save it, share it, or bring it
               to your next meeting.
             </div>
-            {/* Honeypot, real users leave this empty. Hidden visually but */}
-            {/* labeled for accessibility tools so we never confuse a real user. */}
-            <div
+            {/* Honeypot. Bots fill any text input they see; real users do not
+                tab to a field that is offscreen, untabbable, and aria-hidden. */}
+            <input
+              type="text"
+              name="website"
               aria-hidden="true"
+              tabIndex={-1}
+              autoComplete="off"
+              value={hp}
+              onChange={(e) => setHp(e.target.value)}
               style={{
                 position: "absolute",
                 left: "-10000px",
-                top: "auto",
                 width: 1,
                 height: 1,
-                overflow: "hidden",
+                opacity: 0,
+                pointerEvents: "none",
               }}
-            >
-              <label htmlFor="pathed-website-field">Website</label>
-              <input
-                id="pathed-website-field"
-                type="text"
-                name="website"
-                tabIndex={-1}
-                autoComplete="off"
-                value={hp}
-                onChange={(e) => setHp(e.target.value)}
-              />
-            </div>
+            />
             <input
               type="email"
               value={email}
@@ -2933,13 +2928,15 @@ function AccDetail({ label, body, italic, last }) {
   );
 }
 
-// ============ PROMPT BUILDER ============
-// Pragmatic email check: at least one char, an @, at least one char with a
-// dot, then at least one char. Mirrors the server-side check. Not RFC-strict
-// on purpose, since strict regexes reject many real addresses.
+// ============ HELPERS ============
+// Pragmatic email check, mirrored on the server. Not RFC-strict on purpose.
 function isPlausibleEmail(s) {
   return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
+
+// Shared <img onError> handler: hide the broken element rather than show a
+// browser default missing-image glyph.
+function hideOnError(e) { e.target.style.display = "none"; }
 
 // Trim a results object before posting to /api/subscribe. The server has its
 // own 50KB ceiling, but we run the same check here so we never even attempt
