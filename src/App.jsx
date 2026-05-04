@@ -433,42 +433,57 @@ const routeCTA = (branch, feltNeed) => {
   };
 };
 
+// Invariant: every felt-need declared on a branch must have a routing entry.
+// This runs once at module load so a missing entry crashes the build/dev
+// server immediately rather than silently routing to the fallback CTA.
+(() => {
+  for (const b of Object.values(BRANCHES)) {
+    for (const fn of b.feltNeeds) {
+      const r = routeCTA(b.id, fn);
+      if (!r.primary) {
+        throw new Error(`routeCTA: missing primary for "${fn}" (branch ${b.id})`);
+      }
+    }
+  }
+})();
+
+// Single source of truth for the wizard data shape. Used at mount and on
+// reset(). Branch-scoped fields stay in here so that switching branches mid
+// flow does not leave stale answers from another branch in the prompt.
+function initialData() {
+  return {
+    grade: null,
+    planType: null,                  // "504" | "IEP", Implementing only
+    diagnoses: [],
+    diagnosisOther: "",
+    struggleCategories: [],
+    struggleSpecifics: {},           // { [category]: string[] }
+    struggleOther: "",
+    schoolStance: null,
+    monitoringDuration: null,        // follow-up to schoolStance
+    documented: null,                // Exploring only
+    privateEval: null,
+    schoolRelationship: null,
+    feltNeed: null,
+    // Watching only
+    teacherFeedback: null,
+    // In Process only
+    processStage: null,
+    processConcerns: [],
+    // Implementing only
+    currentAccommodations: [],
+    accommodationsWorking: null,
+    planHistory: null,
+    schoolFollowsPlan: null,
+  };
+}
+
 // ============ MAIN COMPONENT ============
 export default function PathED() {
   const [screen, setScreen] = useState("landing");
   const [branch, setBranch] = useState(null);
   const [step, setStep] = useState(0);
-  const [data, setData] = useState({
-    grade: null,
-    planStatus: null,
-    planType: null, // "504" or "IEP" for Branch D
-    diagnoses: [],
-    diagnosisOther: "",
-    struggleCategories: [],
-    struggleSpecifics: {}, // { category: [items] }
-    struggleOther: "",
-    schoolStance: null,
-    monitoringDuration: null,
-    documented: null,
-    history: null,
-    privateEval: null,
-    schoolRelationship: null,
-    familiarity: null,
-    feltNeed: null,
-    // Branch B-specific
-    teacherFeedback: null,
-    triedAlready: [],
-    // Branch C-specific
-    processStage: null,
-    processConcerns: [],
-    // Branch D-specific
-    currentAccommodations: [],
-    accommodationsWorking: null,
-    newConcerns: null,
-    lastReview: null,
-    planHistory: null,
-    schoolFollowsPlan: null,
-  });
+  const [data, setData] = useState(initialData);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
   const [email, setEmail] = useState("");
@@ -483,7 +498,6 @@ export default function PathED() {
   const startBranch = (branchId) => {
     setBranch(branchId);
     setStep(0);
-    update({ planStatus: branchId });
     setScreen("wizard");
   };
 
@@ -497,34 +511,7 @@ export default function PathED() {
     setEmailSubmitted(false);
     setShareWithReese(true);
     setEmailOptIn(true);
-    setData({
-      grade: null,
-      planStatus: null,
-      planType: null,
-      diagnoses: [],
-      diagnosisOther: "",
-      struggleCategories: [],
-      struggleSpecifics: {},
-      struggleOther: "",
-      schoolStance: null,
-      monitoringDuration: null,
-      documented: null,
-      history: null,
-      privateEval: null,
-      schoolRelationship: null,
-      familiarity: null,
-      feltNeed: null,
-      teacherFeedback: null,
-      triedAlready: [],
-      processStage: null,
-      processConcerns: [],
-      currentAccommodations: [],
-      accommodationsWorking: null,
-      newConcerns: null,
-      lastReview: null,
-      planHistory: null,
-      schoolFollowsPlan: null,
-    });
+    setData(initialData());
   };
 
   // ============ STEP DEFINITIONS PER BRANCH ============
@@ -602,23 +589,8 @@ export default function PathED() {
       ],
     };
 
-    const history = {
-      key: "history",
-      title: "History",
-      question: "How long have you been concerned about your child's struggles?",
-      type: "single",
-      field: "history",
-      options: [
-        "Less than a year",
-        "1 to 2 years",
-        "Since early elementary",
-        "Since they started school",
-        "I've always wondered, just started looking now",
-      ],
-    };
-
-    // Lighter version for the Watching branch. Same field as schoolStance so
-    // buildPrompt and the Reese notification continue to work uniformly.
+    // Lighter version for the Watching branch. Writes to the same schoolStance
+    // field so buildPrompt and the Reese notification handle it uniformly.
     const schoolStanceLight = {
       key: "schoolStanceLight",
       title: "School position",
@@ -676,20 +648,6 @@ export default function PathED() {
         "I feel like I'm not being taken seriously",
         "We've had real disagreements about my child's needs",
         "We're considering a formal complaint or due process",
-      ],
-    };
-
-    const familiarity = {
-      key: "familiarity",
-      title: "Your background",
-      question: "How familiar are you with the IEP and 504 process?",
-      type: "single",
-      field: "familiarity",
-      options: [
-        "Completely new to this",
-        "I know the basics but still learning",
-        "Pretty familiar — we've been through this before",
-        "Very familiar, looking for specific guidance",
       ],
     };
 
@@ -768,35 +726,6 @@ export default function PathED() {
       ],
     };
 
-    const newConcerns = {
-      key: "newConcerns",
-      title: "New concerns",
-      question: "Have new struggles come up that aren't addressed in the current plan?",
-      type: "single",
-      field: "newConcerns",
-      options: [
-        "Yes, and we haven't formally raised them yet",
-        "Yes, we've raised them but no action yet",
-        "Some, but I'm not sure if they need a plan change",
-        "No, the current concerns are the same ones the plan addresses",
-      ],
-    };
-
-    const lastReview = {
-      key: "lastReview",
-      title: "Last review",
-      question: "When was the plan last reviewed?",
-      type: "single",
-      field: "lastReview",
-      options: [
-        "Within the last 3 months",
-        "This school year",
-        "Last school year",
-        "Over a year ago",
-        "I don't know",
-      ],
-    };
-
     // Branch B specific
     const teacherFeedback = {
       key: "teacherFeedback",
@@ -809,25 +738,6 @@ export default function PathED() {
         "Yes, but it was offhand or vague",
         "We've heard 'they're doing fine' but I don't agree",
         "Not really, this is mostly something I'm noticing",
-      ],
-    };
-
-    const triedAlready = {
-      key: "triedAlready",
-      title: "What you've tried",
-      question: "What have you already tried at home or outside of school?",
-      subtext: "Choose any that apply.",
-      type: "multi",
-      field: "triedAlready",
-      options: [
-        "More structured homework time",
-        "Reward systems or incentives",
-        "Extra reading or practice at home",
-        "Talking to the teacher",
-        "Online programs or apps",
-        "A private tutor",
-        "A learning specialist or therapist",
-        "Nothing yet, this is where we're starting",
       ],
     };
 
@@ -972,9 +882,9 @@ export default function PathED() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Model and max_tokens are server-controlled in api/generate.js so the
+        // client cannot escalate cost. Only the prompt content travels.
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 4000,
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -999,7 +909,7 @@ export default function PathED() {
   };
 
   const handleEmailSubmit = async () => {
-    if (!email || !email.includes("@")) return;
+    if (!isPlausibleEmail(email)) return;
     let delivery = null;
     try {
       const r = await fetch("/api/subscribe", {
@@ -1028,19 +938,14 @@ export default function PathED() {
             schoolStance: data.schoolStance || "",
             monitoringDuration: data.monitoringDuration || "",
             documented: data.documented || "",
-            history: data.history || "",
             privateEval: data.privateEval || "",
             schoolRelationship: data.schoolRelationship || "",
-            familiarity: data.familiarity || "",
             feltNeed: data.feltNeed || "",
             teacherFeedback: data.teacherFeedback || "",
-            triedAlready: Array.isArray(data.triedAlready) ? data.triedAlready : [],
             processStage: data.processStage || "",
             processConcerns: Array.isArray(data.processConcerns) ? data.processConcerns : [],
             currentAccommodations: Array.isArray(data.currentAccommodations) ? data.currentAccommodations : [],
             accommodationsWorking: data.accommodationsWorking || "",
-            newConcerns: data.newConcerns || "",
-            lastReview: data.lastReview || "",
             planHistory: data.planHistory || "",
             schoolFollowsPlan: data.schoolFollowsPlan || "",
           },
@@ -1048,15 +953,18 @@ export default function PathED() {
       });
       const body = await r.json().catch(() => ({}));
       // The subscriber is always added when the request succeeds. We only flag
-      // delivery as failed if the parent opted in to the email and the send
-      // step itself returned a non-success status.
-      if (emailOptIn) {
-        if (body.profileEmail === "sent") delivery = "sent";
-        else if (body.profileEmail === "failed") delivery = "failed";
+      // The contact upsert and the email send report independently. We treat
+      // delivery as "failed" if the parent opted in to either receiving the
+      // profile or being added to a list and that path did not succeed.
+      const contactBad = (emailOptIn || shareWithReese) && body.contact && body.contact !== "added";
+      const emailBad = emailOptIn && body.profileEmail === "failed";
+      if (emailOptIn || shareWithReese) {
+        if (emailBad || contactBad) delivery = "failed";
+        else if (body.profileEmail === "sent") delivery = "sent";
       }
     } catch (e) {
       console.error("Subscribe error:", e);
-      delivery = emailOptIn ? "failed" : null;
+      delivery = (emailOptIn || shareWithReese) ? "failed" : null;
     }
     setEmailDelivery(delivery);
     setEmailSubmitted(true);
@@ -3026,6 +2934,13 @@ function AccDetail({ label, body, italic, last }) {
 }
 
 // ============ PROMPT BUILDER ============
+// Pragmatic email check: at least one char, an @, at least one char with a
+// dot, then at least one char. Mirrors the server-side check. Not RFC-strict
+// on purpose, since strict regexes reject many real addresses.
+function isPlausibleEmail(s) {
+  return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
 // Trim a results object before posting to /api/subscribe. The server has its
 // own 50KB ceiling, but we run the same check here so we never even attempt
 // to ship a payload that the function would refuse. Returns an object with
@@ -3107,19 +3022,14 @@ ${cleanStruggleOther ? `STRUGGLE OTHER NOTE: ${cleanStruggleOther}` : ""}
 ${d.schoolStance ? `SCHOOL STANCE: ${d.schoolStance}` : ""}
 ${d.monitoringDuration ? `MONITORING DURATION: ${d.monitoringDuration}` : ""}
 ${d.documented ? `DOCUMENTATION: ${d.documented}` : ""}
-${d.history ? `HISTORY: ${d.history}` : ""}
 ${d.privateEval ? `PRIVATE EVAL: ${d.privateEval}` : ""}
 ${d.schoolRelationship ? `SCHOOL RELATIONSHIP: ${d.schoolRelationship}` : ""}
-${d.familiarity ? `FAMILIARITY: ${d.familiarity}` : ""}
 ${d.teacherFeedback ? `TEACHER FEEDBACK: ${d.teacherFeedback}` : ""}
-${d.triedAlready?.length ? `ALREADY TRIED: ${d.triedAlready.join(", ")}` : ""}
 ${d.processStage ? `PROCESS STAGE: ${d.processStage}` : ""}
 ${d.processConcerns?.length ? `PROCESS CONCERNS: ${d.processConcerns.join(", ")}` : ""}
 ${d.currentAccommodations?.length ? `CURRENT ACCOMMODATIONS: ${d.currentAccommodations.join(", ")}` : ""}
 ${d.accommodationsWorking ? `PLAN EFFECTIVENESS: ${d.accommodationsWorking}` : ""}
 ${d.schoolFollowsPlan ? `IMPLEMENTATION: ${d.schoolFollowsPlan}` : ""}
-${d.newConcerns ? `NEW CONCERNS: ${d.newConcerns}` : ""}
-${d.lastReview ? `LAST REVIEW: ${d.lastReview}` : ""}
 ${d.planHistory ? `PLAN IN PLACE FOR: ${d.planHistory}` : ""}
 WHAT PARENT NEEDS MOST: ${d.feltNeed}
 `.trim();
@@ -3158,8 +3068,7 @@ CLINICAL GUARDRAIL (NON-NEGOTIABLE):
 
   // Rule 2: outside evaluation that the school has not acted on.
   const unactedPrivateEval =
-    d.privateEval === "Yes, but the school hasn't acted on it" ||
-    d.privateEval === "Yes, but the school hasn't seen it or acted on it";
+    d.privateEval === "Yes, but the school hasn't acted on it";
   if (unactedPrivateEval) {
     if (branch === "implementing") {
       conditionalRules.push(

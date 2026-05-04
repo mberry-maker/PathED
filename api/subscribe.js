@@ -468,7 +468,12 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true });
   }
 
-  if (!email || typeof email !== "string" || !email.includes("@") || email.length > 254) {
+  if (
+    !email ||
+    typeof email !== "string" ||
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  ) {
     return res.status(400).json({ error: "Valid email required" });
   }
 
@@ -491,9 +496,10 @@ export default async function handler(req, res) {
   }
 
   // ── ADD TO BREVO LISTS ─────────────────────────────────────────────────────
-  // Brevo's contact endpoint upserts: pass updateEnabled: true and the same
-  // email is updated rather than rejected as duplicate. listIds is an array
-  // of integers so we parseInt the env-var values defensively.
+  // updateEnabled: true upserts the contact. listIds is an array of integers,
+  // so parseInt the env vars defensively. Status is surfaced to the response
+  // so the client knows whether the parent actually made it onto a list.
+  let contactStatus = "skipped";
   if (emailOptIn || shareWithReese) {
     const listIds = [];
     if (emailOptIn) {
@@ -505,33 +511,42 @@ export default async function handler(req, res) {
       if (!Number.isNaN(id)) listIds.push(id);
     }
 
-    try {
-      const brevoRes = await fetch("https://api.brevo.com/v3/contacts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "api-key": process.env.BREVO_API_KEY,
-        },
-        body: JSON.stringify({
-          email: cleanEmail,
-          updateEnabled: true,
-          listIds,
-          attributes: {
-            PATHED_BRANCH:        branch                    || "",
-            PATHED_FELT_NEED:     profileData?.feltNeed     || "",
-            PATHED_GRADE:         profileData?.grade        || "",
-            PATHED_SCHOOL_STANCE: profileData?.schoolStance || "",
-            PATHED_SHARE_REESE:   shareWithReese ? "yes" : "no",
+    if (listIds.length === 0) {
+      contactStatus = "no_list_ids";
+      console.error("Brevo contact skipped: no usable list IDs in env");
+    } else {
+      try {
+        const brevoRes = await fetch("https://api.brevo.com/v3/contacts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "api-key": process.env.BREVO_API_KEY,
           },
-        }),
-      });
-      if (!brevoRes.ok) {
-        const err = await brevoRes.json().catch(() => ({}));
-        console.error("Brevo contact error:", brevoRes.status, err);
+          body: JSON.stringify({
+            email: cleanEmail,
+            updateEnabled: true,
+            listIds,
+            attributes: {
+              PATHED_BRANCH:        branch                    || "",
+              PATHED_FELT_NEED:     profileData?.feltNeed     || "",
+              PATHED_GRADE:         profileData?.grade        || "",
+              PATHED_SCHOOL_STANCE: profileData?.schoolStance || "",
+              PATHED_SHARE_REESE:   shareWithReese ? "yes" : "no",
+            },
+          }),
+        });
+        if (brevoRes.ok) {
+          contactStatus = "added";
+        } else {
+          contactStatus = "failed";
+          const err = await brevoRes.json().catch(() => ({}));
+          console.error("Brevo contact error:", brevoRes.status, err);
+        }
+      } catch (e) {
+        contactStatus = "failed";
+        console.error("Brevo contact add failed:", e?.message);
       }
-    } catch (e) {
-      console.error("Brevo contact add failed:", e?.message);
     }
   }
 
@@ -593,8 +608,9 @@ export default async function handler(req, res) {
 
   return res.status(200).json({
     success: true,
-    profileEmail: profileEmailStatus,
-    profileEmailError,
-    reeseNotification: notifyStatus,
+    contact: contactStatus,                  // added | failed | no_list_ids | skipped
+    profileEmail: profileEmailStatus,        // sent | failed | skipped
+    profileEmailError,                       // auth | domain_unverified | trial_recipient_blocked | rate_limited | send_failed | null
+    reeseNotification: notifyStatus,         // sent | failed | skipped
   });
 }
