@@ -2319,9 +2319,25 @@ function Section({ number, title, children, className, isFirst }) {
   );
 }
 
+// First truthy non-empty string across the candidate keys, or "". Used to
+// tolerate AI output that names fields slightly differently than the schema:
+// e.g. {question} instead of a bare string for a question, {name} instead of
+// {title} for a list item. Without this the renderer would draw an empty
+// card, which is what the parent ends up seeing on screen as a blank box.
+function pickStr(obj, ...keys) {
+  if (!obj || typeof obj !== "object") return "";
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === "string" && v.trim().length > 0) return v;
+  }
+  return "";
+}
+
 function SectionBody({ section }) {
   // Render based on section.type
   if (section.type === "narrative") {
+    const body = pickStr(section, "body", "text", "content");
+    if (!body) return null;
     return (
       <p
         style={{
@@ -2331,30 +2347,37 @@ function SectionBody({ section }) {
           margin: 0,
         }}
       >
-        {section.body}
+        {body}
       </p>
     );
   }
   if (section.type === "headline_body") {
     const isReadSection = /504|iep|eligib|plan/i.test(section.title || "");
+    const headline = pickStr(section, "headline", "title", "header");
+    const body = pickStr(section, "body", "text", "content");
+    const callout = pickStr(section, "callout", "note", "aside");
     return (
       <>
-        <div
-          style={{
-            fontSize: 17,
-            lineHeight: 1.45,
-            color: C.navy,
-            fontWeight: 600,
-            marginBottom: 12,
-            letterSpacing: "-0.01em",
-          }}
-        >
-          {section.headline}
-        </div>
-        <p style={{ fontSize: 14.5, lineHeight: 1.75, color: C.text, marginBottom: section.callout ? 16 : 0 }}>
-          {section.body}
-        </p>
-        {section.callout && (
+        {headline && (
+          <div
+            style={{
+              fontSize: 17,
+              lineHeight: 1.45,
+              color: C.navy,
+              fontWeight: 600,
+              marginBottom: 12,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {headline}
+          </div>
+        )}
+        {body && (
+          <p style={{ fontSize: 14.5, lineHeight: 1.75, color: C.text, marginBottom: callout ? 16 : 0 }}>
+            {body}
+          </p>
+        )}
+        {callout && (
           <div
             style={{
               position: "relative",
@@ -2381,7 +2404,7 @@ function SectionBody({ section }) {
             >
               Worth knowing
             </span>
-            {section.callout}
+            {callout}
           </div>
         )}
         {isReadSection && (
@@ -2402,9 +2425,22 @@ function SectionBody({ section }) {
     );
   }
   if (section.type === "accommodations") {
+    // Drop entries that have no name; render only the rows whose value is
+    // actually present so a card never shows an empty "Why it helps" label
+    // followed by nothing.
+    const items = (section.items || [])
+      .map((a) => ({
+        name: pickStr(a, "name", "accommodation", "title"),
+        tag: pickStr(a, "tag"),
+        whyItHelps: pickStr(a, "whyItHelps", "why", "rationale"),
+        howToAskFor: pickStr(a, "howToAskFor", "ask", "phrasing", "script"),
+        strengthenIt: pickStr(a, "strengthenIt", "strengthen", "improve"),
+      }))
+      .filter((a) => a.name);
+    if (items.length === 0) return null;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        {section.items.map((a, i) => (
+        {items.map((a, i) => (
           <div
             key={i}
             className="acc-card"
@@ -2468,15 +2504,24 @@ function SectionBody({ section }) {
                 </span>
               )}
             </div>
-            <AccDetail label="Why it helps" body={a.whyItHelps} />
-            <AccDetail label="How to ask for it" body={a.howToAskFor} italic />
-            <AccDetail label="How families strengthen it" body={a.strengthenIt} last />
+            {a.whyItHelps && <AccDetail label="Why it helps" body={a.whyItHelps} />}
+            {a.howToAskFor && <AccDetail label="How to ask for it" body={a.howToAskFor} italic />}
+            {a.strengthenIt && <AccDetail label="How families strengthen it" body={a.strengthenIt} last />}
           </div>
         ))}
       </div>
     );
   }
   if (section.type === "questions") {
+    // The schema says items are strings. Tolerate AI output that wraps each
+    // question in an object: {question: "..."} or {q: "..."} or {text: "..."}.
+    const questions = (section.items || [])
+      .map((q) => {
+        if (typeof q === "string") return q.trim();
+        return pickStr(q, "question", "q", "text", "title", "body");
+      })
+      .filter(Boolean);
+    if (questions.length === 0) return null;
     return (
       <div
         style={{
@@ -2490,16 +2535,16 @@ function SectionBody({ section }) {
           boxShadow: "0 1px 2px rgba(10, 37, 64, 0.03)",
         }}
       >
-        {section.items.map((q, i) => (
+        {questions.map((q, i) => (
           <div
             key={i}
             style={{
               display: "flex",
               gap: 16,
               alignItems: "flex-start",
-              paddingBottom: i < section.items.length - 1 ? 16 : 0,
+              paddingBottom: i < questions.length - 1 ? 16 : 0,
               borderBottom:
-                i < section.items.length - 1 ? `1px dashed ${C.borderStrong}` : "none",
+                i < questions.length - 1 ? `1px dashed ${C.borderStrong}` : "none",
             }}
           >
             <span
@@ -2539,9 +2584,22 @@ function SectionBody({ section }) {
     );
   }
   if (section.type === "list_with_actions") {
+    // Tolerate (a) plain strings, used as the body with no title; (b) the
+    // spec shape {title, body}; (c) common AI variants like {name, body},
+    // {action, detail}, {title, description}. Drop items with no body.
+    const items = (section.items || [])
+      .map((t) => {
+        if (typeof t === "string") return { title: "", body: t.trim() };
+        return {
+          title: pickStr(t, "title", "name", "action", "header"),
+          body: pickStr(t, "body", "description", "detail", "text", "content"),
+        };
+      })
+      .filter((t) => t.body);
+    if (items.length === 0) return null;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {section.items.map((t, i) => (
+        {items.map((t, i) => (
           <div
             key={i}
             style={{
@@ -2553,18 +2611,20 @@ function SectionBody({ section }) {
               boxShadow: "0 1px 2px rgba(10, 37, 64, 0.04)",
             }}
           >
-            <div
-              style={{
-                fontSize: 15.5,
-                fontWeight: 600,
-                color: C.navy,
-                marginBottom: 8,
-                letterSpacing: "-0.01em",
-                lineHeight: 1.35,
-              }}
-            >
-              {t.title}
-            </div>
+            {t.title && (
+              <div
+                style={{
+                  fontSize: 15.5,
+                  fontWeight: 600,
+                  color: C.navy,
+                  marginBottom: 8,
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.35,
+                }}
+              >
+                {t.title}
+              </div>
+            )}
             <div style={{ fontSize: 14, lineHeight: 1.7, color: C.text }}>{t.body}</div>
           </div>
         ))}

@@ -197,9 +197,13 @@ Return ONLY raw JSON in this shape:
   "sections": [
     { "title": "...", "type": "narrative", "body": "..." },
     { "title": "...", "type": "headline_body", "headline": "...", "body": "...", "callout": "..." },
-    ...etc per branch instructions...
+    { "title": "...", "type": "accommodations", "items": [{ "name": "...", "tag": "STRENGTHEN or ADD or omit", "whyItHelps": "...", "howToAskFor": "...", "strengthenIt": "..." }] },
+    { "title": "...", "type": "questions", "items": ["question one", "question two"] },
+    { "title": "...", "type": "list_with_actions", "items": [{ "title": "...", "body": "..." }] }
   ]
 }
+
+KEY NAMES ARE FROZEN. Use exactly the field names shown above. Do not rename them. For "questions", each item is a plain string, not an object. For "list_with_actions" and "accommodations", each item is an object with the exact keys above. Every string field must be a non-empty string. If you cannot fill a field, omit the entire item, do not include the field with an empty string or the word "undefined".
 
 Start with { and end with }. No markdown, no preamble.`;
 }
