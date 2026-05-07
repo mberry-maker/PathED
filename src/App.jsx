@@ -16,6 +16,17 @@ import { buildPrompt } from "./lib/buildPrompt.js";
 const FontStyles = () => (
   <style>{`
     * { font-family: 'Geist', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    /* Belt-and-suspenders against horizontal overflow on small screens. The
+       page layout is mobile-first but a single long token (an email address,
+       a slash-separated service name, a URL the AI surfaces) can blow up the
+       viewport without these rules. */
+    html, body { overflow-x: hidden; }
+    body { max-width: 100vw; }
+    p, h1, h2, h3, h4, h5, h6, span, div, a, li, label, td, button {
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+    img { max-width: 100%; height: auto; }
     .mono { font-family: 'Geist Mono', 'Courier New', monospace; font-feature-settings: "ss01"; letter-spacing: -0.01em; }
     .num { font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
     .fade-in { animation: fadeIn 0.4s ease-out; }
@@ -761,9 +772,15 @@ function TopBar({ screen, step, totalSteps, onLogo, branch }) {
               fontWeight: 700,
               color: C.navy,
               letterSpacing: "-0.02em",
+              minWidth: 0,
             }}
           >
-            Path<span style={{ color: C.teal }}>ED</span> by AccommodatED Pathways
+            Path<span style={{ color: C.teal }}>ED</span>
+            {/* The "by AccommodatED Pathways" tag is hidden on narrow screens
+                via .tb-sub so the topbar does not push past the viewport
+                edge on a 375px phone. The logo to the left carries the
+                company brand visually when the text is hidden. */}
+            <span className="tb-sub"> by AccommodatED Pathways</span>
           </span>
         </div>
         {screen === "wizard" && (
@@ -937,8 +954,8 @@ function Landing({ onPick }) {
               </span>
               <span
                 style={{
-                  flex: 1,
-                  minWidth: 220,
+                  flex: "1 1 200px",
+                  minWidth: 0,         // 200px is a wish, not a floor; let the label shrink on narrow screens
                   color: C.text,
                   paddingRight: 8,
                 }}
@@ -1936,7 +1953,7 @@ function Results({
             position: "relative",
           }}
         >
-          <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ flex: "1 1 180px", minWidth: 0 }}>
             <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
               {ctas.primary.service}
             </div>
@@ -2228,11 +2245,13 @@ function Results({
           fontWeight: 600,
         }}
       >
-        <span style={{ flex: 1, lineHeight: 1.3 }}>
+        <span style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.3 }}>
           <span style={{ display: "block", fontSize: 11, color: C.tealLight, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, marginBottom: 2 }}>
             Your next step
           </span>
-          {ctas.primary.service} · {ctas.primary.price}
+          <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {ctas.primary.service} · {ctas.primary.price}
+          </span>
         </span>
         <span
           style={{
@@ -2300,14 +2319,15 @@ function Section({ number, title, children, className, isFirst }) {
             margin: 0,
             lineHeight: 1.2,
             letterSpacing: "-0.02em",
-            flex: 1,
+            flex: "1 1 auto",
+            minWidth: 0,        // allow the title to shrink and wrap
           }}
         >
           {title}
         </h3>
         <span
           style={{
-            flex: 1,
+            flex: "0 1 60px",   // line is decoration only; it should yield to the title
             height: 1,
             background: `linear-gradient(to right, ${C.border}, transparent)`,
             minWidth: 24,
